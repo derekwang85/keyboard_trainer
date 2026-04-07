@@ -1,0 +1,74 @@
+{
+  "player_name": "玩家",
+  "total_sessions": 0,
+  "last_played": "2026-03-30 21:12:53",
+  "modes": {
+    "beginner": {
+      "best_score": 0,
+      "best_accuracy": 0.0,
+      "stars": 0,
+      "record_holder": "玩家",
+      "total_sessions": 0,
+      "recent_results": []
+    },
+    "intermediate": {
+      "levels": {
+        "words": {
+          "best_score": 0,
+          "best_accuracy": 0.0,
+          "best_time": Infinity,
+          "best_speed": 0,
+          "stars": 0,
+          "record_holder": "玩家",
+          "total_sessions": 0
+        },
+        "phrases": {
+          "best_score": 0,
+          "best_accuracy": 0.0,
+          "best_time": Infinity,
+          "best_speed": 0,
+          "stars": 0,
+          "record_holder": "玩家",
+          "total_sessions": 0
+        },
+        "sentences": {
+          "best_score": 0,
+          "best_accuracy": 0.0,
+          "best_time": Infinity,
+          "best_speed": 0,
+          "stars": 0,
+          "record_holder": "玩家",
+          "total_sessions": 0
+        }
+      },
+      "total_sessions": 0,
+      "recent_results": []
+    },
+    "advanced": {
+      "best_score": 0,
+      "best_accuracy": 0.0,
+      "max_combo": 0,
+      "stars": 0,
+      "record_holder": "玩家",
+      "total_sessions": 0,
+      "recent_results": []
+    },
+    "master": {
+      "best_score": 0,
+      "best_accuracy": 0.0,
+      "max_combo": 0,
+      "stars": 0,
+      "record_holder": "玩家",
+      "total_sessions": 0,
+      "recent_results": []
+    }
+  },
+  "基础模式": {
+    "best_score": 8,
+    "best_accuracy": 0.0761904761904762,
+    "stars": 1,
+    "record_holder": "玩家",
+    "total_sessions": 1,
+    "recent_results": []
+  }
+}

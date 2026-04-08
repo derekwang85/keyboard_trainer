@@ -93,28 +93,20 @@ class BaseMode:
     
     def render_game_info(self, screen):
         """渲染游戏信息"""
-        # 使用统一的字体加载器
         font = load_font(20, font_dir=self.config.FONTS_DIR)
 
-        # 在右上角显示，避免遮挡键盘
-        x_start = self.config.SCREEN_WIDTH - 180
-        y_start = 20
-        line_height = 28
-
-        # 渲染分数
-        score_text = f"分数: {self.score}"
-        score_surface = font.render(score_text, True, self.config.TEXT_COLOR)
-        screen.blit(score_surface, (x_start, y_start))
-
-        # 渲染准确率
-        accuracy_text = f"准确率: {self.accuracy:.1%}"
-        accuracy_surface = font.render(accuracy_text, True, self.config.TEXT_COLOR)
-        screen.blit(accuracy_surface, (x_start, y_start + line_height))
-
-        # 渲染游戏时间
-        time_text = f"时间: {int(self.game_time)}秒"
-        time_surface = font.render(time_text, True, self.config.TEXT_COLOR)
-        screen.blit(time_surface, (x_start, y_start + line_height * 2))
+        # 顶部功能区均匀排列
+        y = 10
+        items = [
+            ("分数", f"分数: {self.score}"),
+            ("准确率", f"准确率: {self.accuracy:.1%}"),
+            ("时间", f"时间: {int(self.game_time)}秒")
+        ]
+        spacing = self.config.SCREEN_WIDTH // (len(items) + 1)
+        for i, (_, text) in enumerate(items, start=1):
+            surface = font.render(text, True, self.config.TEXT_COLOR)
+            rect = surface.get_rect(center=(spacing * i, y + surface.get_height() // 2))
+            screen.blit(surface, rect)
     
     def handle_event(self, event):
         """处理游戏事件"""

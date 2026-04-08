@@ -276,23 +276,23 @@ class BeginnerMode(BaseMode):
         # 计算进度百分比
         progress_percent = int((self.current_trial / self.total_trials) * 100)
         
-        # 进度文本（左上角，与键盘、目标按键分离）
+        # 进度文本（顶部功能区）
         progress_text = f"进度: {self.current_trial}/{self.total_trials}"
         progress_surface = self.progress_font.render(progress_text, True, self.config.TEXT_COLOR)
-        progress_rect = progress_surface.get_rect(topleft=(20, 20))
+        progress_rect = progress_surface.get_rect(topleft=(20, 10))
         screen.blit(progress_surface, progress_rect)
         
-        # 进度百分比（右上角）
+        # 进度百分比（顶部功能区右侧）
         percent_text = f"{progress_percent}%"
         percent_surface = self.progress_font.render(percent_text, True, self.config.TEXT_COLOR)
-        percent_rect = percent_surface.get_rect(topright=(self.config.SCREEN_WIDTH - 20, 20))
+        percent_rect = percent_surface.get_rect(topright=(self.config.SCREEN_WIDTH - 20, 10))
         screen.blit(percent_surface, percent_rect)
         
-        # 渲染进度条（顶部，不与键盘重叠）
-        bar_width = 300
+        # 渲染进度条（稍下方）
+        bar_width = 320
         bar_height = 10
         bar_x = (self.config.SCREEN_WIDTH - bar_width) // 2
-        bar_y = 20
+        bar_y = 36
         
         # 背景
         pygame.draw.rect(screen, (200, 200, 200), (bar_x, bar_y, bar_width, bar_height), border_radius=5)

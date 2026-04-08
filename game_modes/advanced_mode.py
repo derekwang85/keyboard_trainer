@@ -34,7 +34,7 @@ class FallingLetter:
         self.speed = speed
         self.config = config
         
-        # 字母大小和颜色
+        # 字母大小和颜色（高对比）
         self.font_size = 36
         self.color = self._get_random_color()
         
@@ -54,16 +54,15 @@ class FallingLetter:
         self.update_rect()
     
     def _get_random_color(self):
-        """获取随机颜色"""
+        """获取随机颜色（高对比深色系）"""
         colors = [
-            (255, 50, 50),   # 红色
-            (50, 255, 50),   # 绿色
-            (50, 50, 255),   # 蓝色
-            (255, 255, 50),  # 黄色
-            (255, 50, 255),  # 粉色
-            (50, 255, 255),  # 青色
-            (255, 150, 50),  # 橙色
-            (150, 50, 255)   # 紫色
+            (220, 20, 60),    # 猩红
+            (26, 115, 232),   # 深蓝
+            (34, 139, 34),    # 深绿
+            (255, 140, 0),    # 深橙
+            (156, 39, 176),   # 紫
+            (0, 121, 107),    # 青绿
+            (0, 0, 0),        # 纯黑
         ]
         return random.choice(colors)
     
@@ -161,12 +160,12 @@ class AdvancedMode(BaseMode):
         self.start_time = 0
         
         # 生成字母的间隔
-        self.spawn_interval = 1.0
+        self.spawn_interval = 1.2
         self.last_spawn_time = 0
         
-        # 字母下落速度
-        self.base_speed = 2.0
-        self.speed_increment = self.config.ADVANCED_SPEED_INCREMENT
+        # 字母下落速度（放缓初速）
+        self.base_speed = 1.4
+        self.speed_increment = self.config.ADVANCED_SPEED_INCREMENT * 0.6
         
         # 连击数
         self.combo = 0
@@ -234,8 +233,8 @@ class AdvancedMode(BaseMode):
             self.spawn_letter()
             self.last_spawn_time = current_time
             
-            # 随着游戏进行，减小生成间隔
-            self.spawn_interval = max(0.3, 1.0 - (self.game_time / self.game_duration) * 0.7)
+            # 随着游戏进行，减小生成间隔（保留更多反应时间）
+            self.spawn_interval = max(0.6, 1.2 - (self.game_time / self.game_duration) * 0.6)
         
         # 更新下落字母
         for letter in self.falling_letters[:]:

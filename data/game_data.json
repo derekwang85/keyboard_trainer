@@ -1,7 +1,7 @@
 {
   "player_name": "玩家",
   "total_sessions": 0,
-  "last_played": "2026-04-08 10:04:35",
+  "last_played": "2026-04-08 13:30:30",
   "modes": {
     "beginner": {
       "best_score": 0,
@@ -109,5 +109,26 @@
     "record_holder": "玩家",
     "total_sessions": 1,
     "recent_results": []
+  },
+  "大师模式": {
+    "best_score": 814,
+    "best_accuracy": 1.0,
+    "stars": 2,
+    "record_holder": "玩家",
+    "total_sessions": 3,
+    "recent_results": [
+      {
+        "score": 0,
+        "accuracy": 0.0,
+        "stars": 1,
+        "date": "2026-04-08 10:59:39"
+      },
+      {
+        "score": 814,
+        "accuracy": 1.0,
+        "stars": 2,
+        "date": "2026-04-08 13:30:30"
+      }
+    ]
   }
 }

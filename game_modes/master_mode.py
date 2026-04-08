@@ -37,7 +37,7 @@ class FallingChineseChar:
         self.speed = speed
         self.config = config
         
-        # 汉字大小和颜色
+        # 汉字大小和颜色（高对比）
         self.font_size = 48
         self.color = self._get_random_color()
         
@@ -57,16 +57,15 @@ class FallingChineseChar:
         self.update_rect()
     
     def _get_random_color(self):
-        """获取随机颜色"""
+        """获取随机颜色（高对比深色系）"""
         colors = [
-            (255, 50, 50),   # 红色
-            (50, 255, 50),   # 绿色
-            (50, 50, 255),   # 蓝色
-            (255, 255, 50),  # 黄色
-            (255, 50, 255),  # 粉色
-            (50, 255, 255),  # 青色
-            (255, 150, 50),  # 橙色
-            (150, 50, 255)   # 紫色
+            (220, 20, 60),    # 猩红
+            (26, 115, 232),   # 深蓝
+            (34, 139, 34),    # 深绿
+            (255, 140, 0),    # 深橙
+            (156, 39, 176),   # 紫
+            (0, 121, 107),    # 青绿
+            (0, 0, 0),        # 纯黑
         ]
         return random.choice(colors)
     
@@ -177,12 +176,17 @@ class MasterMode(BaseMode):
         self.start_time = 0
         
         # 生成汉字的间隔
-        self.spawn_interval = 2.0
+        self.spawn_interval = 2.4
         self.last_spawn_time = 0
+
+        # 按键去抖，避免一次敲击录入多次
+        self.last_key = None
+        self.last_key_time = 0
+        self.key_debounce_seconds = 0.12
         
-        # 汉字下落速度
-        self.base_speed = 1.5
-        self.speed_increment = self.config.MASTER_SPEED_INCREMENT
+        # 汉字下落速度（放缓初速）
+        self.base_speed = 0.9
+        self.speed_increment = self.config.MASTER_SPEED_INCREMENT * 0.5
         
         # 用户输入的拼音
         self.user_pinyin = ""
@@ -256,8 +260,8 @@ class MasterMode(BaseMode):
             self.spawn_chinese_char()
             self.last_spawn_time = current_time
             
-            # 随着游戏进行，减小生成间隔
-            self.spawn_interval = max(0.8, 2.0 - (self.game_time / self.game_duration) * 1.2)
+            # 随着游戏进行，减小生成间隔（保留更长时间）
+            self.spawn_interval = max(1.2, 2.4 - (self.game_time / self.game_duration) * 1.0)
         
         # 更新下落汉字
         for char in self.falling_chars[:]:
@@ -396,33 +400,27 @@ class MasterMode(BaseMode):
             self.handle_key_down(event.key)
     
     def handle_key_down(self, key):
-        """处理键盘按下事件"""
+        """处理键盘按下事件，带去抖"""
+        now = time.time()
+        if self.last_key == key and (now - self.last_key_time) < self.key_debounce_seconds:
+            return
+        self.last_key = key
+        self.last_key_time = now
+
         # 处理特殊按键
         if key == pygame.K_BACKSPACE:
-            # 退格键
             if len(self.user_pinyin) > 0:
                 self.user_pinyin = self.user_pinyin[:-1]
         
         elif key == pygame.K_RETURN:
-            # 回车键，提交拼音
             if self.user_pinyin:
                 self.submit_pinyin()
         
         else:
-            # 普通按键，添加到拼音输入
-            # 获取按键字符
             key_char = None
-            
-            # 处理字母键
             if pygame.K_a <= key <= pygame.K_z:
-                # 检查是否按下Shift键
                 shift_pressed = pygame.key.get_mods() & pygame.KMOD_SHIFT
-                if shift_pressed:
-                    key_char = chr(key - pygame.K_a + ord('A'))
-                else:
-                    key_char = chr(key - pygame.K_a + ord('a'))
-            
-            # 如果获取到按键字符，添加到拼音输入
+                key_char = chr(key - pygame.K_a + (ord('A') if shift_pressed else ord('a')))
             if key_char:
                 self.user_pinyin += key_char
     

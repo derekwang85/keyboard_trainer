@@ -26,18 +26,21 @@ class KeyboardRenderer:
         self.keyboard_x = config.KEYBOARD_POS_X
         self.keyboard_y = config.KEYBOARD_POS_Y
         
-        # 按键大小和间距
-        self.key_width = 40
-        self.key_height = 40
-        self.key_margin = 2
+        # 按键大小和间距 - 优化为更大的圆角键帽
+        self.key_width = 44
+        self.key_height = 44
+        self.key_margin = 4
+        self.key_corner_radius = 8  # 圆角半径
         
-        # 按键颜色
-        self.key_bg_color = (200, 200, 200)
-        self.key_text_color = (0, 0, 0)
-        self.key_border_color = (100, 100, 100)
-        self.key_highlight_color = (100, 200, 255)
-        self.key_pressed_color = (50, 150, 200)
-        self.key_error_color = (255, 100, 100)
+        # 按键颜色 - 深色主题
+        self.key_bg_color = config.KEY_DEFAULT_BG
+        self.key_text_color = config.KEY_DEFAULT_TEXT
+        self.key_border_color = config.KEY_BORDER
+        self.key_highlight_color = config.KEY_HIGHLIGHT
+        self.key_pressed_color = config.KEY_PRESSED
+        self.key_error_color = config.KEY_ERROR
+        self.keyboard_bg_color = config.KEYBOARD_BG
+        self.key_home_pos_color = config.KEY_HOME_POS
         
         # 高亮状态：支持多键，duration=None 表示持续高亮
         self.highlights = {}
@@ -45,18 +48,19 @@ class KeyboardRenderer:
         # 按键映射
         self.key_map = self._create_key_map()
         
-        # 手指颜色映射（用于指法指导）
+        # 手指颜色映射（用于指法指导）- type.fun 风格配色
         self.finger_colors = {
-            'left_pinkie': (255, 100, 100),    # 左手小指
-            'left_ring': (255, 150, 100),      # 左手无名指
-            'left_middle': (255, 200, 100),    # 左手中指
-            'left_index': (255, 255, 100),     # 左手食指
-            'left_thumb': (200, 255, 100),     # 左手拇指
-            'right_thumb': (150, 255, 100),    # 右手拇指
-            'right_index': (100, 255, 100),    # 右手食指
-            'right_middle': (100, 255, 150),   # 右手中指
-            'right_ring': (100, 255, 200),     # 右手无名指
-            'right_pinkie': (100, 200, 255)    # 右手小指
+            'left_pinkie': (239, 68, 68),       # 左手小指 - 红色 #EF4444
+            'left_ring': (251, 146, 60),       # 左手无名指 - 橙色 #FB923C
+            'left_middle': (234, 179, 8),       # 左手中指 - 黄色 #EAB308
+            'left_index': (132, 204, 22),      # 左手食指 - 绿色 #84CC16
+            'left_thumb': (16, 185, 129),      # 左手拇指 - 翠绿 #10B981
+            'both_thumbs': (20, 184, 166),     # 双拇指 - 青绿 #14B8A6
+            'right_thumb': (16, 185, 129),     # 右手拇指 - 翠绿 #10B981
+            'right_index': (14, 165, 233),    # 右手食指 - 天蓝 #0EA5E9
+            'right_middle': (99, 102, 241),    # 右手中指 - 靛蓝 #6366F1
+            'right_ring': (168, 85, 247),     # 右手无名指 - 紫色 #A855F7
+            'right_pinkie': (236, 72, 153)     # 右手小指 - 粉红 #EC4899
         }
         
         # 按键到手指的映射
@@ -99,49 +103,56 @@ class KeyboardRenderer:
         return key_map
     
     def _create_key_to_finger_map(self):
-        """创建按键到手指的映射"""
-        # 标准指法按键映射
+        r"""
+        创建按键到手指的映射 - 修正为标准指法
+        
+        标准指法分配：
+        - 左手小指: 1, Q, A, Z, Tab, CapsLock
+        - 左手无名指: 2, W, S, X
+        - 左手中指: 3, E, D, C
+        - 左手食指: 4, 5, R, T, F, G, V, B
+        - 右手食指: 6, 7, Y, U, H, J, N, M
+        - 右手中指: 8, I, K, 逗号
+        - 右手无名指: 9, O, L, 句号
+        - 右手小指: 0, P, 分号, 斜杠, 减号等
+        - 双拇指: 空格键 (双手拇指操作)
+        """
         key_to_finger = {
-            # 左手小指
-            '1': 'left_pinkie', '2': 'left_pinkie', 'q': 'left_pinkie', 'w': 'left_pinkie',
-            'a': 'left_pinkie', 's': 'left_pinkie', 'z': 'left_pinkie', 'x': 'left_pinkie',
+            # ========== 左手区域 ==========
+            # 左手小指 (最左列)
+            '1': 'left_pinkie', 'q': 'left_pinkie', 'a': 'left_pinkie', 'z': 'left_pinkie',
             '`': 'left_pinkie', '~': 'left_pinkie',
-            
-            # 左手无名指
-            '3': 'left_ring', 'e': 'left_ring', 'd': 'left_ring', 'c': 'left_ring',
-            
-            # 左手中指
-            '4': 'left_middle', 'r': 'left_middle', 'f': 'left_middle', 'v': 'left_middle',
-            
-            # 左手食指
-            '5': 'left_index', '6': 'left_index', 't': 'left_index', 'y': 'left_index',
-            'g': 'left_index', 'h': 'left_index', 'b': 'left_index', 'n': 'left_index',
-            
+            'Tab': 'left_pinkie', 'Caps': 'left_pinkie',  # Tab 和 CapsLock
+            # 【修复】左手无名指 (2WSX) - 原错误映射到 left_pinkie
+            '2': 'left_ring', 'w': 'left_ring', 's': 'left_ring', 'x': 'left_ring',
+            # 【修复】左手中指 (3EDC) - 原错误映射到 left_ring
+            '3': 'left_middle', 'e': 'left_middle', 'd': 'left_middle', 'c': 'left_middle',
+            # 【修复】左手食指 (RFV TGB) - 原错误将 T Y G H 映射到 left_index
+            '4': 'left_index', '5': 'left_index',  # 数字行的 4, 5
+            'r': 'left_index', 'f': 'left_index', 'v': 'left_index',  # 左食指负责列
+            't': 'left_index', 'g': 'left_index', 'b': 'left_index',  # 左食指上/下行
             # 左手拇指
-            ' ': 'left_thumb',
+            ' ': 'both_thumbs',  # 空格键由双手拇指操作
             
-            # 右手拇指
-            ' ': 'right_thumb',
-            
-            # 右手食指
-            '7': 'right_index', '8': 'right_index', 'u': 'right_index', 'i': 'right_index',
-            'j': 'right_index', 'k': 'right_index', 'm': 'right_index', ',': 'right_index',
-            
-            # 右手中指
-            '9': 'right_middle', 'o': 'right_middle', 'l': 'right_middle', '.': 'right_middle',
-            
-            # 右手无名指
-            '0': 'right_ring', 'p': 'right_ring', ';': 'right_ring', ':': 'right_ring',
-            '/': 'right_ring', '?': 'right_ring',
-            
-            # 右手小指
+            # ========== 右手区域 ==========
+            # 右手食指 (6YH NJM) - 右手基准键是 J 和 F
+            '6': 'right_index', '7': 'right_index',
+            'y': 'right_index', 'u': 'right_index',
+            'h': 'right_index', 'j': 'right_index',  # J 是右手基准键
+            'n': 'right_index', 'm': 'right_index',
+            # 【修复】右手中指 (8IK ,) - 原错误将 I 映射到 right_index
+            '8': 'right_middle', 'i': 'right_middle', 'k': 'right_middle', ',': 'right_middle',
+            # 【修复】右手无名指 (9OL .) - 原错误将 0 映射到 right_ring
+            '9': 'right_ring', 'o': 'right_ring', 'l': 'right_ring', '.': 'right_ring',
+            # 右手小指 (0P;/ -[]\ 'Enter等)
+            '0': 'right_pinkie', 'p': 'right_pinkie',
+            ';': 'right_pinkie', ':': 'right_pinkie', '/': 'right_pinkie', '?': 'right_pinkie',
             '-': 'right_pinkie', '_': 'right_pinkie', '=': 'right_pinkie', '+': 'right_pinkie',
             '[': 'right_pinkie', '{': 'right_pinkie', ']': 'right_pinkie', '}': 'right_pinkie',
             '\\': 'right_pinkie', '|': 'right_pinkie', "'": 'right_pinkie', '"': 'right_pinkie',
             'Enter': 'right_pinkie', 'Shift': 'right_pinkie', 'Ctrl': 'right_pinkie',
-            'Alt': 'right_pinkie', 'Caps': 'right_pinkie', 'Esc': 'right_pinkie',
-            'Tab': 'left_pinkie', 'Backspace': 'right_pinkie',
-            'Win': 'left_thumb', 'Fn': 'left_thumb',
+            'Alt': 'right_pinkie', 'Esc': 'right_pinkie',
+            'Backspace': 'right_pinkie', 'Win': 'right_pinkie', 'Fn': 'right_pinkie',
         }
         
         return key_to_finger
@@ -235,26 +246,32 @@ class KeyboardRenderer:
     
     def render(self, screen):
         """
-        渲染键盘
+        渲染键盘 - 深色主题样式
         
         参数:
         - screen: 游戏屏幕
         """
-        # 渲染背景
+        # 渲染键盘背景 - 深色半透明
         keyboard_rect = pygame.Rect(
-            self.keyboard_x - 10,
-            self.keyboard_y - 10,
-            self.keyboard_width + 20,
-            self.keyboard_height + 20
+            self.keyboard_x - 15,
+            self.keyboard_y - 15,
+            self.keyboard_width + 30,
+            self.keyboard_height + 30
         )
-        pygame.draw.rect(screen, (180, 180, 180), keyboard_rect, border_radius=10)
+        
+        # 创建圆角键盘背景
+        bg_surface = pygame.Surface((keyboard_rect.width, keyboard_rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(bg_surface, (*self.keyboard_bg_color, 230), 
+                         bg_surface.get_rect(), border_radius=12)
+        screen.blit(bg_surface, keyboard_rect.topleft)
         
         # 渲染按键
         expired_keys = []
         for key in self.keys:
             # 确定按键颜色
-            color = self.key_bg_color
+            char_lower = key['char'].lower() if len(key['char']) == 1 else key['char']
             highlight = self.highlights.get(key['char'])
+            
             if highlight:
                 color = highlight['color']
                 # 计时高亮递减
@@ -262,18 +279,47 @@ class KeyboardRenderer:
                     highlight['duration'] -= 1
                     if highlight['duration'] <= 0:
                         expired_keys.append(key['char'])
-
-            # 绘制按键
-            pygame.draw.rect(screen, color, key['rect'], border_radius=5)
-            pygame.draw.rect(screen, self.key_border_color, key['rect'], 2, border_radius=5)
+            else:
+                # 默认按键颜色 - 深色
+                color = self.key_bg_color
+            
+            # 绘制圆角按键 - 带微妙渐变效果的边框
+            pygame.draw.rect(screen, color, key['rect'], border_radius=self.key_corner_radius)
+            
+            # 绘制内阴影效果（按键顶部高光）
+            highlight_rect = pygame.Rect(
+                key['rect'].x + 2,
+                key['rect'].y + 2,
+                key['rect'].width - 4,
+                key['rect'].height // 3
+            )
+            highlight_color = tuple(min(255, c + 20) for c in color)
+            pygame.draw.rect(screen, highlight_color, highlight_rect, border_radius=6)
+            
+            # 绘制按键边框
+            border_color = tuple(max(0, c - 30) for c in color)
+            pygame.draw.rect(screen, border_color, key['rect'], 1, border_radius=self.key_corner_radius)
 
         # 清理过期高亮
         for char in expired_keys:
             self.highlights.pop(char, None)
 
-        # 绘制按键文本和指示（对所有按键）
+        # 绘制按键文本
         for key in self.keys:
-            text_surface = self.font.render(key['char'], True, self.key_text_color)
+            # 基准键(F/J)使用特殊颜色
+            if key['char'].lower() in ['f', 'j']:
+                text_color = self.key_home_pos_color
+                # 为基准键添加底部指示条
+                indicator_rect = pygame.Rect(
+                    key['rect'].centerx - 8,
+                    key['rect'].bottom - 6,
+                    16, 3
+                )
+                pygame.draw.rect(screen, self.key_home_pos_color, indicator_rect, border_radius=2)
+            else:
+                text_color = self.key_text_color
+            
+            text_surface = self.font.render(key['char'], True, text_color)
             text_rect = text_surface.get_rect(center=key['rect'].center)
             screen.blit(text_surface, text_rect)
 
@@ -368,10 +414,222 @@ class KeyboardRenderer:
     def show_finger_guide(self, key_char):
         """
         显示按键对应的手指指导
-        
+
         参数:
         - key_char: 按键字符
         """
         finger = self.get_finger_for_key(key_char)
         if finger:
             self.highlight_finger_keys(finger, duration=60)
+
+    # ==================== 指法示意图渲染 ====================
+
+    # 手指中文名称映射
+    FINGER_NAMES_CN = {
+        'left_pinkie': '左手小指',
+        'left_ring': '左手无名指',
+        'left_middle': '左手中指',
+        'left_index': '左手食指',
+        'left_thumb': '左手拇指',
+        'both_thumbs': '双拇指',
+        'right_thumb': '右手拇指',
+        'right_index': '右手食指',
+        'right_middle': '右手中指',
+        'right_ring': '右手无名指',
+        'right_pinkie': '右手小指',
+    }
+
+    # 手指默认颜色（未激活状态）- 深色主题下的暗淡颜色
+    FINGER_INACTIVE_COLOR = (75, 85, 100)
+
+    # 手掌/手形颜色 - 深色主题下使用轮廓线风格
+    HAND_SKIN_COLOR = (60, 70, 85)
+    HAND_BORDER_COLOR = (100, 115, 140)
+    HAND_HIGHLIGHT_COLOR = (236, 72, 153)  # 激活手指时的高亮边框
+
+    def render_finger_guide(self, screen, active_finger=None):
+        """
+        在键盘下方渲染指法示意图
+
+        参数:
+        - screen: 游戏屏幕
+        - active_finger: 当前激活的手指名称（如'right_index'），None表示不高亮
+        """
+        # 计算示意图位置（键盘下方居中）
+        guide_y = self.keyboard_y + self.keyboard_height + 15
+        center_x = self.config.SCREEN_WIDTH // 2
+
+        # 整体布局参数
+        hand_width = 130       # 单只手掌宽度
+        hand_height = 45       # 手掌高度
+        finger_width = 12      # 手指宽度
+        finger_length = 35     # 手指长度（不含手掌部分）
+        thumb_width = 14       # 拇指宽度
+        thumb_length = 20      # 拇指长度
+        finger_gap = 6         # 手指间距
+        palm_center_offset = 25  # 手掌中心到手指根部的偏移
+
+        # 两只手之间的间距
+        hands_gap = 40
+
+        # 总宽度计算
+        total_width = hand_width * 2 + hands_gap
+        start_x = center_x - total_width // 2
+
+        # ===== 绘制左手 =====
+        left_hand_x = start_x
+        self._draw_hand(
+            screen,
+            left_hand_x, guide_y,
+            hand_width, hand_height,
+            finger_width, finger_length,
+            thumb_width, thumb_length,
+            finger_gap, palm_center_offset,
+            is_left=True,
+            active_finger=active_finger
+        )
+
+        # ===== 绘制右手 =====
+        right_hand_x = start_x + hand_width + hands_gap
+        self._draw_hand(
+            screen,
+            right_hand_x, guide_y,
+            hand_width, hand_height,
+            finger_width, finger_length,
+            thumb_width, thumb_length,
+            finger_gap, palm_center_offset,
+            is_left=False,
+            active_finger=active_finger
+        )
+
+        # ===== 绘制激活手指的标签 =====
+        if active_finger and active_finger in self.FINGER_NAMES_CN:
+            self._draw_finger_label(screen, center_x, guide_y, active_finger)
+
+    def _draw_hand(self, screen, x, y, hand_width, hand_height,
+                   finger_width, finger_length, thumb_width, thumb_length,
+                   finger_gap, palm_center_offset, is_left=True, active_finger=None):
+        """
+        绘制单只手（手掌+5个手指）- 深色主题风格
+        
+        激活手指使用填充色+发光效果
+        未激活手指使用轮廓线风格
+
+        参数:
+        - screen: 游戏屏幕
+        - x, y: 手掌左上角坐标
+        - is_left: 是否为左手
+        - active_finger: 当前激活的手指
+        """
+        # 手指定义（从左到右或从右到左）
+        if is_left:
+            # 左手：从左到右为 小指、无名指、中指、食指、拇指
+            finger_keys = ['left_pinkie', 'left_ring', 'left_middle', 'left_index', 'left_thumb']
+        else:
+            # 右手：从左到右为 拇指、食指、中指、无名指、小指
+            finger_keys = ['right_thumb', 'right_index', 'right_middle', 'right_ring', 'right_pinkie']
+
+        # 绘制手掌 - 深色主题使用填充矩形
+        palm_rect = pygame.Rect(x, y + palm_center_offset, hand_width, hand_height)
+        pygame.draw.rect(screen, self.HAND_SKIN_COLOR, palm_rect, border_radius=8)
+        pygame.draw.rect(screen, self.HAND_BORDER_COLOR, palm_rect, 2, border_radius=8)
+
+        # 计算4个手指的总宽度（不包括拇指）
+        four_fingers_width = 4 * finger_width + 3 * finger_gap
+        fingers_start_x = x + (hand_width - four_fingers_width) // 2
+
+        # 绘制4个手指
+        for i in range(4):
+            finger_key = finger_keys[i]
+            fx = fingers_start_x + i * (finger_width + finger_gap)
+            fy = y  # 指尖在上方
+
+            # 确定手指颜色
+            is_active = (finger_key == active_finger)
+            color = self.finger_colors.get(finger_key, self.FINGER_INACTIVE_COLOR)
+            
+            # 绘制手指
+            finger_rect = pygame.Rect(fx, fy, finger_width, finger_length)
+            
+            if is_active:
+                # 激活状态：填充色 + 发光边框
+                pygame.draw.ellipse(screen, color, finger_rect)
+                # 发光效果（外圈）
+                glow_rect = finger_rect.inflate(4, 4)
+                glow_color = tuple(min(255, c + 60) for c in color)
+                pygame.draw.ellipse(screen, glow_color, glow_rect, 2)
+            else:
+                # 未激活状态：仅轮廓线
+                pygame.draw.ellipse(screen, self.HAND_BORDER_COLOR, finger_rect, 2)
+
+        # 绘制拇指
+        thumb_key = finger_keys[4]
+        is_active = (thumb_key == active_finger)
+        color = self.finger_colors.get(thumb_key, self.FINGER_INACTIVE_COLOR)
+
+        if is_left:
+            thumb_x = x - thumb_width // 2
+        else:
+            thumb_x = x + hand_width - thumb_width // 2
+        thumb_y = y + palm_center_offset - thumb_length // 2
+
+        thumb_rect = pygame.Rect(thumb_x, thumb_y, thumb_width, thumb_length)
+        
+        if is_active:
+            pygame.draw.ellipse(screen, color, thumb_rect)
+            glow_rect = thumb_rect.inflate(4, 4)
+            glow_color = tuple(min(255, c + 60) for c in color)
+            pygame.draw.ellipse(screen, glow_color, glow_rect, 2)
+        else:
+            pygame.draw.ellipse(screen, self.HAND_BORDER_COLOR, thumb_rect, 2)
+
+    def _draw_finger_label(self, screen, center_x, base_y, active_finger):
+        """
+        在手形下方绘制激活手指的中文名称标签 - 深色主题风格
+
+        参数:
+        - screen: 游戏屏幕
+        - center_x: 中心x坐标
+        - base_y: 示意图基准y坐标
+        - active_finger: 激活的手指名称
+        """
+        label_text = self.FINGER_NAMES_CN.get(active_finger, '')
+        if not label_text:
+            return
+
+        # 标签字体
+        try:
+            label_font = load_font(16, font_dir=self.config.FONTS_DIR)
+        except Exception:
+            label_font = None
+
+        if label_font:
+            text_surface = label_font.render(label_text, True, (255, 255, 255))
+            text_rect = text_surface.get_rect()
+
+            # 标签位置（示意图下方居中）
+            label_y = base_y + 85
+            label_x = center_x - text_rect.width // 2
+
+            # 背景框（半透明深色+手指颜色边框）
+            padding = 10
+            bg_rect = pygame.Rect(
+                label_x - padding,
+                label_y - padding,
+                text_rect.width + padding * 2,
+                text_rect.height + padding * 2
+            )
+
+            # 获取激活手指的颜色
+            finger_color = self.finger_colors.get(active_finger, (236, 72, 153))
+            
+            # 创建半透明背景
+            bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+            pygame.draw.rect(bg_surface, (30, 35, 40, 240), bg_surface.get_rect(), border_radius=8)
+            screen.blit(bg_surface, bg_rect.topleft)
+            
+            # 绘制手指颜色的边框
+            pygame.draw.rect(screen, finger_color, bg_rect, 2, border_radius=8)
+
+            # 绘制文字
+            screen.blit(text_surface, (label_x, label_y))

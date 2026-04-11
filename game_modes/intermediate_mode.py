@@ -153,6 +153,15 @@ class IntermediateMode(BaseMode):
         
         # 渲染速度信息
         self.render_speed_info(screen)
+
+        # 渲染指法示意图（在键盘下方）
+        if self.current_index < len(self.current_content):
+            target_char = self.current_content[self.current_index]
+            hl_char = self.normalize_highlight_char(target_char)
+            if hl_char:
+                active_finger = self.keyboard_renderer.get_finger_for_key(hl_char)
+                if active_finger:
+                    self.keyboard_renderer.render_finger_guide(screen, active_finger)
     
     def render_content(self, screen):
         """渲染训练内容"""

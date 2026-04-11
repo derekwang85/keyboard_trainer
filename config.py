@@ -17,14 +17,37 @@ class Config:
         self.SCREEN_HEIGHT = 768
         self.FPS = 60
         
-        # 颜色设置
-        self.BACKGROUND_COLOR = (240, 248, 255)  # 爱丽丝蓝
-        self.PRIMARY_COLOR = (70, 130, 180)      # 钢蓝色
-        self.SECONDARY_COLOR = (255, 165, 0)     # 橙色
-        self.SUCCESS_COLOR = (50, 205, 50)       # 酸橙绿
-        self.ERROR_COLOR = (220, 20, 60)         # 猩红色
-        self.TEXT_COLOR = (30, 30, 30)           # 深灰色文本
-        self.LIGHT_TEXT = (255, 255, 255)        # 白色文本
+        # 颜色设置 - 深色主题 (参考 type.fun 风格)
+        # 背景色
+        self.BACKGROUND_COLOR = (45, 52, 54)           # 深灰蓝 #2D3436
+        self.CARD_BG_COLOR = (30, 35, 40)              # 卡片背景 #1E2328
+        self.PANEL_BG_COLOR = (38, 45, 52)            # 面板背景 #263544
+        
+        # 主色调
+        self.PRIMARY_COLOR = (236, 72, 153)            # 粉红 #EC4899 (当前键高亮)
+        self.PRIMARY_LIGHT = (244, 114, 182)           # 浅粉 #F472B6
+        self.SECONDARY_COLOR = (116, 185, 255)        # 天蓝 #74B9FF
+        
+        # 状态色
+        self.SUCCESS_COLOR = (16, 185, 129)           # 翠绿 #10B981
+        self.ERROR_COLOR = (239, 68, 68)              # 红色 #EF4444
+        self.WARNING_COLOR = (251, 191, 36)           # 橙黄 #FBBF24
+        
+        # 文本色
+        self.TEXT_COLOR = (226, 232, 240)             # 浅灰白 #E2E8F0
+        self.TEXT_SECONDARY = (148, 163, 184)         # 次要文字 #94A3B8
+        self.TEXT_MUTED = (100, 116, 139)             # 暗淡文字 #64748B
+        self.LIGHT_TEXT = (255, 255, 255)             # 纯白 #FFFFFF
+        
+        # 键盘按键色
+        self.KEY_DEFAULT_BG = (61, 79, 95)             # 按键默认 #3D4F5F
+        self.KEY_DEFAULT_TEXT = (226, 232, 240)       # 按键文字 #E2E8F0
+        self.KEY_BORDER = (75, 90, 110)               # 按键边框 #4B5A6E
+        self.KEY_HIGHLIGHT = (236, 72, 153)           # 按键高亮 #EC4899
+        self.KEY_HOME_POS = (16, 185, 129)            # 基准键位(F/J) #10B981
+        self.KEY_PRESSED = (99, 102, 120)            # 按下状态 #636B78
+        self.KEY_ERROR = (239, 68, 68)               # 错误 #EF4444
+        self.KEYBOARD_BG = (26, 32, 38)              # 键盘背景 #1A2026
         
         # 键盘设置
         self.KEYBOARD_WIDTH = 800

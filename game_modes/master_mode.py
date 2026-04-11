@@ -204,7 +204,14 @@ class MasterMode(BaseMode):
         # 连击文本
         self.combo_text = None
         self.combo_timer = 0
-        
+
+        # 动态速度调节机制
+        self.consecutive_errors = 0       # 连续错误计数
+        self.speed_penalty = 1.0          # 速度惩罚因子（初始1.0，每2次连续错误乘以0.95）
+        self.SPEED_PENALTY_THRESHOLD = 2   # 触发降速的连续错误次数
+        self.SPEED_PENALTY_FACTOR = 0.95   # 每次降速的乘法因子
+        self.SPEED_MIN_RATIO = 0.5         # 速度下限比例（相对于初始base_speed）
+
         # 初始化游戏
         self.reset_game()
     
@@ -236,6 +243,10 @@ class MasterMode(BaseMode):
         # 重置连击文本
         self.combo_text = None
         self.combo_timer = 0
+
+        # 重置动态速度调节
+        self.consecutive_errors = 0
+        self.speed_penalty = 1.0
     
     def start(self):
         """开始游戏"""
@@ -251,8 +262,16 @@ class MasterMode(BaseMode):
             self.end_game()
             return
         
-        # 更新当前速度（随时间增加）
-        self.current_speed = self.base_speed + (self.game_time / self.game_duration) * self.speed_increment
+        # 更新基准速度（随时间增加）
+        base_current_speed = self.base_speed + (self.game_time / self.game_duration) * self.speed_increment
+        
+        # 应用速度惩罚因子得到实际速度
+        self.current_speed = base_current_speed * self.speed_penalty
+
+        # 检查速度是否低于下限
+        if self.current_speed < self.base_speed * self.SPEED_MIN_RATIO:
+            self.end_game()
+            return
         
         # 生成新汉字
         current_time = time.time()
@@ -267,10 +286,15 @@ class MasterMode(BaseMode):
         for char in self.falling_chars[:]:
             char.update()
             
-            # 检查是否落地
+            # 检查是否落地（落地也算错误）
             if char.landed:
                 self.missed += 1
                 self.combo = 0  # 重置连击
+                self.consecutive_errors += 1
+                # 检查是否需要降速
+                if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
+                    self.speed_penalty *= self.SPEED_PENALTY_FACTOR
+                    self.consecutive_errors = 0
                 self.falling_chars.remove(char)
         
         # 更新粒子系统
@@ -329,10 +353,25 @@ class MasterMode(BaseMode):
         max_combo_surface = font.render(max_combo_text, True, self.config.TEXT_COLOR)
         screen.blit(max_combo_surface, (self.config.SCREEN_WIDTH - 200, 120))
         
-        # 渲染当前速度
-        speed_text = f"速度: {self.current_speed:.1f}"
-        speed_surface = font.render(speed_text, True, self.config.TEXT_COLOR)
+        # 渲染当前速度（带速度倍率）
+        speed_ratio = self.speed_penalty * 100
+        speed_text = f"速度: {self.current_speed:.1f} ({speed_ratio:.0f}%)"
+        
+        # 根据速度倍率选择颜色
+        if speed_ratio <= self.SPEED_MIN_RATIO * 100:
+            speed_color = (220, 20, 60)  # 红色：危险
+        elif speed_ratio <= 75:
+            speed_color = (255, 140, 0)  # 橙色：警告
+        else:
+            speed_color = self.config.TEXT_COLOR
+        
+        speed_surface = font.render(speed_text, True, speed_color)
         screen.blit(speed_surface, (self.config.SCREEN_WIDTH - 200, 150))
+
+        # 渲染连续错误数
+        error_text = f"连错: {self.consecutive_errors}/{self.SPEED_PENALTY_THRESHOLD}"
+        error_surface = font.render(error_text, True, self.config.TEXT_COLOR)
+        screen.blit(error_surface, (self.config.SCREEN_WIDTH - 200, 180))
     
     def render_user_input(self, screen):
         """渲染用户输入"""
@@ -437,6 +476,9 @@ class MasterMode(BaseMode):
                 # 击中汉字
                 hit_any = True
                 
+                # 重置连续错误计数（击中成功）
+                self.consecutive_errors = 0
+                
                 # 更新游戏数据
                 self.correct_count += 1
                 self.total_count += 1
@@ -474,6 +516,11 @@ class MasterMode(BaseMode):
             # 没有击中任何汉字
             self.total_count += 1
             self.combo = 0  # 重置连击
+            self.consecutive_errors += 1
+            # 检查是否需要降速
+            if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
+                self.speed_penalty *= self.SPEED_PENALTY_FACTOR
+                self.consecutive_errors = 0
             self.play_error_sound()
         
         # 清空用户输入

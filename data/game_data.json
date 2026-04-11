@@ -1,7 +1,7 @@
 {
   "player_name": "玩家",
   "total_sessions": 0,
-  "last_played": "2026-04-08 13:30:30",
+  "last_played": "2026-04-11 22:59:34",
   "modes": {
     "beginner": {
       "best_score": 0,
@@ -64,35 +64,73 @@
     }
   },
   "基础模式": {
-    "best_score": 8,
-    "best_accuracy": 0.0761904761904762,
-    "stars": 1,
+    "best_score": 263,
+    "best_accuracy": 0.9740740740740741,
+    "stars": 5,
     "record_holder": "玩家",
-    "total_sessions": 1,
-    "recent_results": []
+    "total_sessions": 3,
+    "recent_results": [
+      {
+        "score": 93,
+        "accuracy": 0.93,
+        "stars": 5,
+        "date": "2026-04-11 21:31:57"
+      },
+      {
+        "score": 263,
+        "accuracy": 0.9740740740740741,
+        "stars": 5,
+        "date": "2026-04-11 22:56:39"
+      }
+    ]
   },
   "中级模式 - 单词": {
     "best_score": 114,
     "best_accuracy": 1.0,
     "stars": 4,
     "record_holder": "玩家",
-    "total_sessions": 2,
+    "total_sessions": 4,
     "recent_results": [
       {
         "score": 10,
         "accuracy": 0.9830508474576272,
         "stars": 1,
         "date": "2026-04-08 09:59:04"
+      },
+      {
+        "score": 4,
+        "accuracy": 0.922077922077922,
+        "stars": 1,
+        "date": "2026-04-11 21:33:49"
+      },
+      {
+        "score": 15,
+        "accuracy": 0.9333333333333333,
+        "stars": 1,
+        "date": "2026-04-11 22:57:12"
       }
     ]
   },
   "中级模式 - 短语": {
-    "best_score": 16,
-    "best_accuracy": 0.9407894736842105,
+    "best_score": 19,
+    "best_accuracy": 0.9652173913043478,
     "stars": 1,
     "record_holder": "玩家",
-    "total_sessions": 1,
-    "recent_results": []
+    "total_sessions": 3,
+    "recent_results": [
+      {
+        "score": 15,
+        "accuracy": 0.9609375,
+        "stars": 1,
+        "date": "2026-04-11 21:27:29"
+      },
+      {
+        "score": 19,
+        "accuracy": 0.9652173913043478,
+        "stars": 1,
+        "date": "2026-04-11 22:57:52"
+      }
+    ]
   },
   "中级模式 - 句子": {
     "best_score": 18,
@@ -107,15 +145,28 @@
     "best_accuracy": 0.55625,
     "stars": 1,
     "record_holder": "玩家",
-    "total_sessions": 1,
-    "recent_results": []
+    "total_sessions": 3,
+    "recent_results": [
+      {
+        "score": 446,
+        "accuracy": 0.5256410256410257,
+        "stars": 1,
+        "date": "2026-04-11 22:10:14"
+      },
+      {
+        "score": 580,
+        "accuracy": 0.49107142857142855,
+        "stars": 1,
+        "date": "2026-04-11 22:59:34"
+      }
+    ]
   },
   "大师模式": {
-    "best_score": 814,
+    "best_score": 871,
     "best_accuracy": 1.0,
     "stars": 2,
     "record_holder": "玩家",
-    "total_sessions": 3,
+    "total_sessions": 5,
     "recent_results": [
       {
         "score": 0,
@@ -128,6 +179,18 @@
         "accuracy": 1.0,
         "stars": 2,
         "date": "2026-04-08 13:30:30"
+      },
+      {
+        "score": 871,
+        "accuracy": 1.0,
+        "stars": 2,
+        "date": "2026-04-11 21:28:39"
+      },
+      {
+        "score": 438,
+        "accuracy": 0.8888888888888888,
+        "stars": 1,
+        "date": "2026-04-11 21:35:37"
       }
     ]
   }

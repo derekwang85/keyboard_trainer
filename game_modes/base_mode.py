@@ -11,6 +11,7 @@ import random
 from keyboard.keyboard_renderer import KeyboardRenderer
 from data.storage import StorageManager
 from font_loader import load_font
+from ui.finger_tracker import FingerComplianceTracker
 
 class BaseMode:
     """游戏模式基类"""
@@ -32,6 +33,10 @@ class BaseMode:
         
         # 创建存储管理器
         self.storage_manager = StorageManager(self.config)
+        
+        # 创建指法合规性追踪器
+        self.finger_tracker = FingerComplianceTracker()
+        self.finger_tracker.set_key_finger_map(self.keyboard_renderer.key_to_finger)
         
         # 游戏状态
         self.running = False
@@ -70,6 +75,9 @@ class BaseMode:
         self.accuracy = 0.0
         self.correct_count = 0
         self.total_count = 0
+        # 重置指法追踪器
+        self.finger_tracker.reset()
+        self.finger_tracker.set_key_finger_map(self.keyboard_renderer.key_to_finger)
     
     def update(self):
         """更新游戏状态"""
@@ -167,6 +175,21 @@ class BaseMode:
     def play_error_sound(self):
         """播放错误音效"""
         self.audio_manager.play_sound("error")
+    
+    def record_finger_press(self, char, finger_used, is_correct):
+        """
+        记录手指按键用于指法追踪
+        
+        参数:
+        - char: 按键字符
+        - finger_used: 使用的手指
+        - is_correct: 是否正确
+        """
+        self.finger_tracker.record_key_press(char, finger_used, is_correct)
+    
+    def get_finger_compliance_report(self):
+        """获取指法合规报告"""
+        return self.finger_tracker.get_summary()
     
     def end_game(self):
         """结束游戏"""

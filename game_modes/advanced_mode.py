@@ -180,9 +180,37 @@ class AdvancedMode(BaseMode):
         # 连击文本
         self.combo_text = None
         self.combo_timer = 0
+
+        # 动态速度调节机制
+        self.consecutive_errors = 0       # 连续错误计数
+        self.speed_penalty = 1.0          # 速度惩罚因子（初始1.0，每2次连续错误乘以0.95）
+        self.SPEED_PENALTY_THRESHOLD = 2   # 触发降速的连续错误次数
+        self.SPEED_PENALTY_FACTOR = 0.95   # 每次降速的乘法因子
+        self.SPEED_MIN_RATIO = 0.5         # 速度下限比例（相对于初始base_speed）
         
+        # 指法均衡追踪
+        self.finger_letter_count = {}  # {finger: {char: count}}
+        self._init_finger_letter_mapping()
+
         # 初始化游戏
         self.reset_game()
+    
+    def _init_finger_letter_mapping(self):
+        """初始化手指到字母的映射"""
+        # 从键盘渲染器获取映射
+        key_to_finger = self.keyboard_renderer.key_to_finger
+        
+        # 按手指分组字母
+        self.finger_letter_map = {}
+        for char in 'abcdefghijklmnopqrstuvwxyz':
+            finger = key_to_finger.get(char, 'unknown')
+            if finger not in self.finger_letter_map:
+                self.finger_letter_map[finger] = []
+            self.finger_letter_map[finger].append(char)
+        
+        # 初始化计数
+        for finger in self.finger_letter_map:
+            self.finger_letter_count[finger] = 0
     
     def reset_game(self):
         """重置游戏"""
@@ -209,6 +237,14 @@ class AdvancedMode(BaseMode):
         # 重置连击文本
         self.combo_text = None
         self.combo_timer = 0
+
+        # 重置动态速度调节
+        self.consecutive_errors = 0
+        self.speed_penalty = 1.0
+        
+        # 重置指法统计
+        for finger in self.finger_letter_count:
+            self.finger_letter_count[finger] = 0
     
     def start(self):
         """开始游戏"""
@@ -224,8 +260,16 @@ class AdvancedMode(BaseMode):
             self.end_game()
             return
         
-        # 更新当前速度（随时间增加）
-        self.current_speed = self.base_speed + (self.game_time / self.game_duration) * self.speed_increment
+        # 更新基准速度（随时间增加）
+        base_current_speed = self.base_speed + (self.game_time / self.game_duration) * self.speed_increment
+        
+        # 应用速度惩罚因子得到实际速度
+        self.current_speed = base_current_speed * self.speed_penalty
+
+        # 检查速度是否低于下限
+        if self.current_speed < self.base_speed * self.SPEED_MIN_RATIO:
+            self.end_game()
+            return
         
         # 生成新字母
         current_time = time.time()
@@ -240,10 +284,15 @@ class AdvancedMode(BaseMode):
         for letter in self.falling_letters[:]:
             letter.update()
             
-            # 检查是否落地
+            # 检查是否落地（落地也算错误）
             if letter.landed:
                 self.missed += 1
                 self.combo = 0  # 重置连击
+                self.consecutive_errors += 1
+                # 检查是否需要降速
+                if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
+                    self.speed_penalty *= self.SPEED_PENALTY_FACTOR
+                    self.consecutive_errors = 0
                 self.falling_letters.remove(letter)
         
         # 更新粒子系统
@@ -299,15 +348,57 @@ class AdvancedMode(BaseMode):
         max_combo_surface = font.render(max_combo_text, True, self.config.TEXT_COLOR)
         screen.blit(max_combo_surface, (self.config.SCREEN_WIDTH - 200, 120))
         
-        # 渲染当前速度
-        speed_text = f"速度: {self.current_speed:.1f}"
-        speed_surface = font.render(speed_text, True, self.config.TEXT_COLOR)
+        # 渲染当前速度（带速度倍率）
+        speed_ratio = self.speed_penalty * 100
+        speed_text = f"速度: {self.current_speed:.1f} ({speed_ratio:.0f}%)"
+        
+        # 根据速度倍率选择颜色
+        if speed_ratio <= self.SPEED_MIN_RATIO * 100:
+            speed_color = (220, 20, 60)  # 红色：危险
+        elif speed_ratio <= 75:
+            speed_color = (255, 140, 0)  # 橙色：警告
+        else:
+            speed_color = self.config.TEXT_COLOR
+        
+        speed_surface = font.render(speed_text, True, speed_color)
         screen.blit(speed_surface, (self.config.SCREEN_WIDTH - 200, 150))
+
+        # 渲染连续错误数
+        error_text = f"连错: {self.consecutive_errors}/{self.SPEED_PENALTY_THRESHOLD}"
+        error_surface = font.render(error_text, True, self.config.TEXT_COLOR)
+        screen.blit(error_surface, (self.config.SCREEN_WIDTH - 200, 180))
     
     def spawn_letter(self):
-        """生成新的下落字母"""
-        # 随机选择一个字母
-        char = random.choice("abcdefghijklmnopqrstuvwxyz")
+        """
+        生成新的下落字母 - 指法均衡算法
+        
+        优先选择使用次数最少的手指对应的字母，
+        以确保每根手指都能得到均衡的练习
+        """
+        # 找出使用次数最少的手指
+        min_count = min(self.finger_letter_count.values()) if self.finger_letter_count else 0
+        
+        # 找出所有使用次数等于最少的手指
+        least_used_fingers = [
+            finger for finger, count in self.finger_letter_count.items()
+            if count == min_count and finger in self.finger_letter_map
+        ]
+        
+        # 优先选择使用次数少的手指对应的字母
+        if least_used_fingers:
+            # 80%概率选择最少使用的手指，20%概率完全随机（增加多样性）
+            if random.random() < 0.8:
+                selected_finger = random.choice(least_used_fingers)
+                char = random.choice(self.finger_letter_map[selected_finger])
+            else:
+                char = random.choice("abcdefghijklmnopqrstuvwxyz")
+        else:
+            char = random.choice("abcdefghijklmnopqrstuvwxyz")
+        
+        # 记录字母生成（用于指法统计）
+        finger = self.keyboard_renderer.key_to_finger.get(char, 'unknown')
+        if finger in self.finger_letter_count:
+            self.finger_letter_count[finger] += 1
         
         # 随机生成x坐标
         x = random.randint(50, self.config.SCREEN_WIDTH - 50)
@@ -337,6 +428,9 @@ class AdvancedMode(BaseMode):
                 if letter.check_hit(key_char):
                     # 击中字母
                     hit_any = True
+
+                    # 重置连续错误计数（击中成功）
+                    self.consecutive_errors = 0
                     
                     # 更新游戏数据
                     self.correct_count += 1
@@ -375,6 +469,11 @@ class AdvancedMode(BaseMode):
                 # 没有击中任何字母
                 self.total_count += 1
                 self.combo = 0  # 重置连击
+                self.consecutive_errors += 1
+                # 检查是否需要降速
+                if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
+                    self.speed_penalty *= self.SPEED_PENALTY_FACTOR
+                    self.consecutive_errors = 0
                 self.play_error_sound()
     
     def show_combo_text(self, x, y):

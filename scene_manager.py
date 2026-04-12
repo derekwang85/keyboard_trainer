@@ -265,10 +265,10 @@ class ModeSelectScene(Scene):
     
     def start_advanced_mode(self):
         """开始高级模式"""
-        self.scene_manager.change_scene(GameScene(self.scene_manager, "advanced"))
+        self.scene_manager.change_scene(AdvancedLevelSelectScene(self.scene_manager))
     
     def start_master_mode(self):
-        """开始大师模式"""
+        """开始大师模式（纯汉字输入，无虚拟键盘提示）"""
         self.scene_manager.change_scene(GameScene(self.scene_manager, "master"))
     
     def back_to_menu(self):
@@ -368,11 +368,102 @@ class IntermediateLevelSelectScene(Scene):
 
     def start_intermediate_mode(self, level):
         """开始中级模式指定级别"""
-        game_scene = GameScene(self.scene_manager, "intermediate")
-        game_scene.game_mode.level = level
+        level_keys = ["words", "phrases", "sentences"]
+        mode_key = f"intermediate_{level_keys[level]}"
+        game_scene = GameScene(self.scene_manager, mode_key)
         game_scene.game_mode.load_content()
         game_scene.game_mode.set_next_content()
         self.scene_manager.change_scene(game_scene)
+
+    def back_to_mode_select(self):
+        """返回模式选择"""
+        self.scene_manager.change_scene(ModeSelectScene(self.scene_manager))
+
+class AdvancedLevelSelectScene(Scene):
+    """高级模式级别选择场景"""
+
+    def __init__(self, scene_manager):
+        """初始化高级模式级别选择场景"""
+        super().__init__(scene_manager)
+
+        # 创建标题文本
+        self.title = Text(
+            "选择训练内容",
+            self.config.HEADER_FONT_SIZE,
+            self.config.PRIMARY_COLOR,
+            (self.config.SCREEN_WIDTH // 2, 100)
+        )
+
+        # 创建按钮
+        button_width = self.config.BUTTON_WIDTH
+        button_height = self.config.BUTTON_HEIGHT
+        button_margin = self.config.BUTTON_MARGIN
+        center_x = self.config.SCREEN_WIDTH // 2
+
+        # 高级字母训练按钮（原高级模式）
+        self.letters_button = Button(
+            "高级字母",
+            button_width,
+            button_height,
+            (center_x, 200),
+            self.config.PRIMARY_COLOR,
+            self.config.LIGHT_TEXT,
+            self.config.NORMAL_FONT_SIZE,
+            self.start_advanced_letters
+        )
+
+        # 高级拼音训练按钮（原大师模式，但保留键盘提示）
+        self.pinyin_button = Button(
+            "高级拼音",
+            button_width,
+            button_height,
+            (center_x, 200 + button_height + button_margin),
+            self.config.PRIMARY_COLOR,
+            self.config.LIGHT_TEXT,
+            self.config.NORMAL_FONT_SIZE,
+            self.start_advanced_pinyin
+        )
+
+        # 返回按钮
+        self.back_button = Button(
+            "返回",
+            button_width,
+            button_height,
+            (center_x, 200 + 2 * (button_height + button_margin)),
+            self.config.SECONDARY_COLOR,
+            self.config.LIGHT_TEXT,
+            self.config.NORMAL_FONT_SIZE,
+            self.back_to_mode_select
+        )
+
+    def handle_event(self, event):
+        """处理事件"""
+        self.letters_button.handle_event(event)
+        self.pinyin_button.handle_event(event)
+        self.back_button.handle_event(event)
+
+    def update(self):
+        """更新场景"""
+        pass
+
+    def render(self, screen):
+        """渲染场景"""
+        # 渲染标题
+        self.title.render(screen)
+
+        # 渲染按钮
+        self.letters_button.render(screen)
+        self.pinyin_button.render(screen)
+        self.back_button.render(screen)
+
+    def start_advanced_letters(self):
+        """开始高级字母模式（原高级模式）"""
+        self.scene_manager.change_scene(GameScene(self.scene_manager, "advanced"))
+
+    def start_advanced_pinyin(self):
+        """开始高级拼音模式（原大师模式，保留键盘提示）"""
+        # 使用统一的模式标识
+        self.scene_manager.change_scene(GameScene(self.scene_manager, "advanced_pinyin"))
 
     def back_to_mode_select(self):
         """返回模式选择"""
@@ -384,23 +475,44 @@ class GameScene(Scene):
     def __init__(self, scene_manager, mode):
         """初始化游戏场景"""
         super().__init__(scene_manager)
+        
+        # 处理可能的复合模式键（如 intermediate_words）
         self.mode = mode
-
-        # 根据模式创建游戏实例
-        if mode == "beginner":
+        self.level_key = None
+        
+        actual_mode = mode
+        if mode.startswith("intermediate_"):
+            actual_mode = "intermediate"
+            self.level_key = mode.replace("intermediate_", "")
+        
+        # 根据模式创建游戏实例（按需导入，避免循环导入）
+        if actual_mode == "beginner":
+            from game_modes.beginner_mode import BeginnerMode
             self.game_mode = BeginnerMode(self)
-        elif mode == "intermediate":
+        elif actual_mode == "intermediate":
+            from game_modes.intermediate_mode import IntermediateMode
             self.game_mode = IntermediateMode(self)
-        elif mode == "advanced":
+            if self.level_key:
+                # 转换 key 为 index
+                level_map = {"words": 0, "phrases": 1, "sentences": 2}
+                self.game_mode.level = level_map.get(self.level_key, 0)
+        elif actual_mode == "advanced":
+            from game_modes.advanced_mode import AdvancedMode
             self.game_mode = AdvancedMode(self)
-        elif mode == "master":
+        elif actual_mode == "master":
+            from game_modes.master_mode import MasterMode
             self.game_mode = MasterMode(self)
+            self.game_mode.set_variant("master")
+        elif actual_mode == "advanced_pinyin":
+            from game_modes.master_mode import MasterMode
+            self.game_mode = MasterMode(self)
+            self.game_mode.set_variant("advanced_pinyin")
 
         # 游戏是否暂停
         self.paused = False
 
         # 初/中级不显示暂停按钮
-        if mode not in ("beginner", "intermediate"):
+        if actual_mode not in ("beginner", "intermediate"):
             self.pause_button = Button(
                 "暂停",
                 100,
@@ -504,6 +616,14 @@ class ResultScene(Scene):
         self.mode_name = mode_name
         self.mode_key = mode_key
         
+        # 用户名输入状态
+        self.waiting_for_username = is_new_record
+        self.username_input = ""
+        self.input_active = True
+        self.username_submitted = False
+        self.storage_manager = StorageManager(self.config)
+        self._toggle_text_input(self.waiting_for_username)
+        
         # 创建标题文本
         self.title = Text(
             f"{mode_name} - 游戏结束",
@@ -545,7 +665,7 @@ class ResultScene(Scene):
                 (self.config.SCREEN_WIDTH // 2, 380)
             )
         
-        # 创建鼓励语
+        # 创建鼓励语（仅在非输入状态显示）
         self.encouragement_text = Text(
             self.get_encouragement(),
             self.config.NORMAL_FONT_SIZE,
@@ -558,7 +678,7 @@ class ResultScene(Scene):
         button_height = self.config.BUTTON_HEIGHT
         center_x = self.config.SCREEN_WIDTH // 2
         
-        # 再玩一次按钮
+        # 再玩一次按钮（初始隐藏，输入完成后显示）
         self.play_again_button = Button(
             "再玩一次",
             button_width,
@@ -581,11 +701,58 @@ class ResultScene(Scene):
             self.config.NORMAL_FONT_SIZE,
             self.back_to_menu
         )
+        
+        # 确认按钮（用于用户名输入）
+        self.confirm_button = Button(
+            "确认",
+            button_width,
+            button_height,
+            (center_x, 520),
+            self.config.SUCCESS_COLOR,
+            self.config.LIGHT_TEXT,
+            self.config.NORMAL_FONT_SIZE,
+            self.confirm_username
+        )
     
+    def _toggle_text_input(self, enabled):
+        """开启或关闭系统文本输入"""
+        if not hasattr(pygame.key, "start_text_input"):
+            return
+        try:
+            if enabled:
+                pygame.key.start_text_input()
+            else:
+                pygame.key.stop_text_input()
+        except pygame.error:
+            pass
+
+    def _append_username_text(self, text):
+        """向用户名输入框追加合法字符"""
+        if not text:
+            return
+        for char in text:
+            if len(self.username_input) >= 10:
+                break
+            if char.isalnum() or '\u4e00' <= char <= '\u9fff':
+                self.username_input += char
+
     def handle_event(self, event):
         """处理事件"""
-        self.play_again_button.handle_event(event)
-        self.menu_button.handle_event(event)
+        if self.waiting_for_username:
+            if event.type == pygame.TEXTINPUT:
+                self._append_username_text(event.text)
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    self.confirm_username()
+                elif event.key == pygame.K_BACKSPACE:
+                    self.username_input = self.username_input[:-1]
+                elif event.key == pygame.K_ESCAPE:
+                    self.skip_username()
+            elif event.type == pygame.MOUSEBUTTONDOWN and self.username_input:
+                self.confirm_button.handle_event(event)
+        else:
+            self.play_again_button.handle_event(event)
+            self.menu_button.handle_event(event)
     
     def update(self):
         """更新场景"""
@@ -593,26 +760,61 @@ class ResultScene(Scene):
     
     def render(self, screen):
         """渲染场景"""
-        # 渲染标题
         self.title.render(screen)
-        
-        # 渲染分数和准确率
         self.score_text.render(screen)
         self.accuracy_text.render(screen)
-        
-        # 渲染星级
         self.stars_text.render(screen)
         
-        # 渲染新纪录文本（如果是新纪录）
         if self.is_new_record:
             self.new_record_text.render(screen)
         
-        # 渲染鼓励语
-        self.encouragement_text.render(screen)
+        if self.waiting_for_username:
+            self._render_username_input(screen)
+        else:
+            self.encouragement_text.render(screen)
+            self.play_again_button.render(screen)
+            self.menu_button.render(screen)
+    
+    def _render_username_input(self, screen):
+        """渲染用户名输入界面"""
+        import pygame
         
-        # 渲染按钮
-        self.play_again_button.render(screen)
-        self.menu_button.render(screen)
+        hint_font = load_font(24, font_dir=self.config.FONTS_DIR)
+        hint_text = "请输入您的名字（按Enter确认，ESC跳过）："
+        hint_surface = hint_font.render(hint_text, True, self.config.TEXT_COLOR)
+        hint_rect = hint_surface.get_rect(center=(self.config.SCREEN_WIDTH // 2, 430))
+        screen.blit(hint_surface, hint_rect)
+        
+        input_rect = pygame.Rect(
+            self.config.SCREEN_WIDTH // 2 - 150,
+            460,
+            300,
+            40
+        )
+        pygame.draw.rect(screen, (50, 55, 65), input_rect, border_radius=8)
+        pygame.draw.rect(screen, self.config.PRIMARY_COLOR, input_rect, 2, border_radius=8)
+        
+        input_font = load_font(28, font_dir=self.config.FONTS_DIR)
+        input_surface = input_font.render(self.username_input, True, self.config.TEXT_COLOR)
+        screen.blit(input_surface, (input_rect.x + 10, input_rect.y + 8))
+        
+        if pygame.time.get_ticks() % 1000 < 500:
+            cursor_x = input_rect.x + 10 + input_font.size(self.username_input)[0]
+            pygame.draw.line(
+                screen,
+                self.config.PRIMARY_COLOR,
+                (cursor_x, input_rect.y + 8),
+                (cursor_x, input_rect.y + 32),
+                2
+            )
+        
+        if self.username_input:
+            self.confirm_button.render(screen)
+        
+        skip_text = "按 ESC 跳过"
+        skip_surface = hint_font.render(skip_text, True, self.config.TEXT_MUTED)
+        skip_rect = skip_surface.get_rect(center=(self.config.SCREEN_WIDTH // 2, 600))
+        screen.blit(skip_surface, skip_rect)
     
     def get_encouragement(self):
         """获取鼓励语"""
@@ -651,14 +853,74 @@ class ResultScene(Scene):
     
     def play_again(self):
         """再玩一次"""
+        self._toggle_text_input(False)
         self.scene_manager.change_scene(GameScene(self.scene_manager, self.mode_key))
     
     def back_to_menu(self):
         """返回主菜单"""
+        self._toggle_text_input(False)
         self.scene_manager.change_scene(MainMenuScene(self.scene_manager))
+    
+    def confirm_username(self):
+        """确认用户名"""
+        if self.username_submitted:
+            return
+        
+        username = self.username_input.strip()
+        if not username:
+            return
+        
+        self.username_submitted = True
+        self._toggle_text_input(False)
+        
+        # 更新排行榜
+        self.storage_manager.update_leaderboard(
+            self.mode_key,
+            username,
+            self.score
+        )
+        
+        # 更新玩家名称
+        self.storage_manager.set_player_name(username)
+        
+        # 结束输入状态
+        self.waiting_for_username = False
+    
+    def skip_username(self):
+        """跳过用户名输入"""
+        if self.username_submitted:
+            return
+        
+        self.username_submitted = True
+        self._toggle_text_input(False)
+        
+        # 使用默认名称更新排行榜
+        self.storage_manager.update_leaderboard(
+            self.mode_key,
+            "匿名玩家",
+            self.score
+        )
+        
+        # 结束输入状态
+        self.waiting_for_username = False
 
 class RecordsScene(Scene):
-    """成绩档案场景"""
+    """成绩档案场景 - 分模式排行榜"""
+    
+    # 模式名称映射
+    MODE_NAMES = {
+        'beginner': '初级模式',
+        'advanced': '高级字母',
+        'advanced_pinyin': '高级拼音',
+        'master': '大师模式',
+        'intermediate_words': '中级-单词',
+        'intermediate_phrases': '中级-短语',
+        'intermediate_sentences': '中级-句子'
+    }
+    
+    # 模式显示顺序
+    MODE_ORDER = ['beginner', 'intermediate_words', 'intermediate_phrases', 'intermediate_sentences', 
+                  'advanced', 'advanced_pinyin', 'master']
     
     def __init__(self, scene_manager):
         """初始化成绩档案场景"""
@@ -666,31 +928,100 @@ class RecordsScene(Scene):
         
         # 创建标题文本
         self.title = Text(
-            "成绩档案",
+            "排行榜",
             self.config.HEADER_FONT_SIZE,
             self.config.PRIMARY_COLOR,
-            (self.config.SCREEN_WIDTH // 2, 50)
+            (self.config.SCREEN_WIDTH // 2, 40)
         )
         
         # 加载成绩数据
         self.storage_manager = StorageManager(self.config)
-        self.records = self.storage_manager.load_data()
+        self.all_data = self.storage_manager.load_data()
+        
+        # 当前选中的模式标签
+        self.current_mode_index = 0
+        
+        # 标签按钮区域
+        self.tab_buttons = []
+        self._create_tab_buttons()
         
         # 创建返回按钮
         self.back_button = Button(
             "返回",
             150,
             50,
-            (self.config.SCREEN_WIDTH // 2, self.config.SCREEN_HEIGHT - 50),
+            (self.config.SCREEN_WIDTH // 2, self.config.SCREEN_HEIGHT - 40),
             self.config.SECONDARY_COLOR,
             self.config.LIGHT_TEXT,
             self.config.NORMAL_FONT_SIZE,
             self.back_to_menu
         )
+        
+        # 左右切换按钮
+        self.prev_button = Button(
+            "<",
+            50,
+            40,
+            (80, 40),
+            self.config.SECONDARY_COLOR,
+            self.config.LIGHT_TEXT,
+            self.config.NORMAL_FONT_SIZE,
+            self.prev_mode
+        )
+        self.next_button = Button(
+            ">",
+            50,
+            40,
+            (self.config.SCREEN_WIDTH - 80, 40),
+            self.config.SECONDARY_COLOR,
+            self.config.LIGHT_TEXT,
+            self.config.NORMAL_FONT_SIZE,
+            self.next_mode
+        )
+    
+    def _create_tab_buttons(self):
+        """创建模式标签按钮"""
+        self.tab_buttons = []
+        start_x = 140
+        tab_width = 100
+        tab_gap = 10
+        
+        for i, mode_key in enumerate(self.MODE_ORDER):
+            mode_name = self.MODE_NAMES.get(mode_key, mode_key)
+            btn = Button(
+                mode_name,
+                tab_width,
+                35,
+                (start_x + i * (tab_width + tab_gap), 85),
+                self.config.PRIMARY_COLOR if i == self.current_mode_index else self.config.SECONDARY_COLOR,
+                self.config.LIGHT_TEXT,
+                self.config.SMALL_FONT_SIZE,
+                lambda idx=i: self.select_mode(idx)
+            )
+            self.tab_buttons.append(btn)
+    
+    def select_mode(self, index):
+        """选择模式"""
+        self.current_mode_index = index
+        self._create_tab_buttons()  # 重建按钮以更新高亮
+    
+    def prev_mode(self):
+        """上一个模式"""
+        self.current_mode_index = (self.current_mode_index - 1) % len(self.MODE_ORDER)
+        self._create_tab_buttons()
+    
+    def next_mode(self):
+        """下一个模式"""
+        self.current_mode_index = (self.current_mode_index + 1) % len(self.MODE_ORDER)
+        self._create_tab_buttons()
     
     def handle_event(self, event):
         """处理事件"""
         self.back_button.handle_event(event)
+        self.prev_button.handle_event(event)
+        self.next_button.handle_event(event)
+        for btn in self.tab_buttons:
+            btn.handle_event(event)
     
     def update(self):
         """更新场景"""
@@ -701,98 +1032,117 @@ class RecordsScene(Scene):
         # 渲染标题
         self.title.render(screen)
         
-        # 渲染各模式的最佳成绩
-        y_pos = 120
-        line_height = 40
+        # 渲染左右切换按钮
+        self.prev_button.render(screen)
+        self.next_button.render(screen)
         
-        # 初级模式
-        if "beginner" in self.records:
-            beginner_data = self.records["beginner"]
-            Text(
-                f"初级模式 - 最佳分数: {beginner_data.get('best_score', 0)} "
-                f"(准确率: {beginner_data.get('best_accuracy', 0):.1%}) "
-                f"{'★' * beginner_data.get('stars', 0)}",
-                self.config.NORMAL_FONT_SIZE,
-                self.config.TEXT_COLOR,
-                (self.config.SCREEN_WIDTH // 2, y_pos)
-            ).render(screen)
-            if "record_holder" in beginner_data:
-                Text(
-                    f"纪录保持者: {beginner_data['record_holder']}",
-                    self.config.SMALL_FONT_SIZE,
-                    self.config.TEXT_COLOR,
-                    (self.config.SCREEN_WIDTH // 2, y_pos + 25)
-                ).render(screen)
-            y_pos += line_height + 20
+        # 渲染标签按钮
+        for btn in self.tab_buttons:
+            btn.render(screen)
         
-        # 中级模式
-        if "intermediate" in self.records and "levels" in self.records["intermediate"]:
-            intermediate_data = self.records["intermediate"]["levels"]
-            
-            Text(
-                "中级模式:",
-                self.config.NORMAL_FONT_SIZE,
-                self.config.PRIMARY_COLOR,
-                (self.config.SCREEN_WIDTH // 2, y_pos)
-            ).render(screen)
-            y_pos += line_height
-            
-            for level, data in intermediate_data.items():
-                level_name = {"words": "单词", "phrases": "短语", "sentences": "句子"}.get(level, level)
-                Text(
-                    f"- {level_name}: 最佳准确率 {data.get('best_accuracy', 0):.1%}, "
-                    f"最快时间 {data.get('best_time', 0):.1f}秒, "
-                    f"{'★' * data.get('stars', 0)}",
-                    self.config.SMALL_FONT_SIZE,
-                    self.config.TEXT_COLOR,
-                    (self.config.SCREEN_WIDTH // 2, y_pos)
-                ).render(screen)
-                y_pos += line_height - 10
-            
-            y_pos += 10
+        # 获取当前模式的排行榜数据
+        current_mode = self.MODE_ORDER[self.current_mode_index]
+        leaderboard = self._get_leaderboard(current_mode)
         
-        # 高级模式
-        if "advanced" in self.records:
-            advanced_data = self.records["advanced"]
-            Text(
-                f"高级模式 - 最高分数: {advanced_data.get('best_score', 0)} "
-                f"(准确率: {advanced_data.get('best_accuracy', 0):.1%}, "
-                f"最大连击: {advanced_data.get('max_combo', 0)}) "
-                f"{'★' * advanced_data.get('stars', 0)}",
-                self.config.NORMAL_FONT_SIZE,
-                self.config.TEXT_COLOR,
-                (self.config.SCREEN_WIDTH // 2, y_pos)
-            ).render(screen)
-            if "record_holder" in advanced_data:
-                Text(
-                    f"纪录保持者: {advanced_data['record_holder']}",
-                    self.config.SMALL_FONT_SIZE,
-                    self.config.TEXT_COLOR,
-                    (self.config.SCREEN_WIDTH // 2, y_pos + 25)
-                ).render(screen)
-            y_pos += line_height + 20
+        # 渲染排行榜标题
+        mode_name = self.MODE_NAMES.get(current_mode, current_mode)
+        title_font = load_font(28, font_dir=self.config.FONTS_DIR)
+        title_surface = title_font.render(f"{mode_name} 排行榜", True, self.config.PRIMARY_COLOR)
+        title_rect = title_surface.get_rect(center=(self.config.SCREEN_WIDTH // 2, 145))
+        screen.blit(title_surface, title_rect)
         
-        # 大师模式
-        if "master" in self.records:
-            master_data = self.records["master"]
-            Text(
-                f"大师模式 - 最高分数: {master_data.get('best_score', 0)} "
-                f"(准确率: {master_data.get('best_accuracy', 0):.1%}) "
-                f"{'★' * master_data.get('stars', 0)}",
-                self.config.NORMAL_FONT_SIZE,
-                self.config.TEXT_COLOR,
-                (self.config.SCREEN_WIDTH // 2, y_pos)
-            ).render(screen)
-            if "record_holder" in master_data:
-                Text(
-                    f"纪录保持者: {master_data['record_holder']}",
-                    self.config.SMALL_FONT_SIZE,
-                    self.config.TEXT_COLOR,
-                    (self.config.SCREEN_WIDTH // 2, y_pos + 25)
-                ).render(screen)
+        # 渲染排行榜列表
+        if leaderboard:
+            self._render_leaderboard(screen, leaderboard)
+        else:
+            self._render_empty_leaderboard(screen)
         
         # 渲染返回按钮
         self.back_button.render(screen)
+    
+    def _get_leaderboard(self, mode_key):
+        """获取指定模式的排行榜"""
+        # 处理中级模式的子级别
+        if mode_key.startswith('intermediate_'):
+            level = mode_key.replace('intermediate_', '')
+            return self.storage_manager.get_leaderboard('intermediate', level)
+        else:
+            return self.storage_manager.get_leaderboard(mode_key)
+    
+    def _render_leaderboard(self, screen, leaderboard):
+        """渲染排行榜列表"""
+        entry_font = load_font(22, font_dir=self.config.FONTS_DIR)
+        rank_font = load_font(24, font_dir=self.config.FONTS_DIR)
+        
+        # 表头
+        header_y = 180
+        headers = ["排名", "用户名", "分数", "时间"]
+        header_x_positions = [self.config.SCREEN_WIDTH // 2 - 200, 
+                              self.config.SCREEN_WIDTH // 2 - 80,
+                              self.config.SCREEN_WIDTH // 2 + 40,
+                              self.config.SCREEN_WIDTH // 2 + 150]
+        
+        for i, header in enumerate(headers):
+            header_surface = entry_font.render(header, True, self.config.TEXT_SECONDARY)
+            header_rect = header_surface.get_rect(center=(header_x_positions[i], header_y))
+            screen.blit(header_surface, header_rect)
+        
+        # 分隔线
+        pygame.draw.line(
+            screen,
+            self.config.PRIMARY_COLOR,
+            (self.config.SCREEN_WIDTH // 2 - 250, header_y + 20),
+            (self.config.SCREEN_WIDTH // 2 + 250, header_y + 20),
+            2
+        )
+        
+        # 排行榜条目
+        for i, entry in enumerate(leaderboard[:10]):  # 最多显示10条
+            rank = i + 1
+            y_pos = header_y + 45 + i * 35
+            
+            # 排名（前三名特殊颜色）
+            rank_color = self.config.TEXT_COLOR
+            if rank == 1:
+                rank_color = (255, 215, 0)  # 金色
+            elif rank == 2:
+                rank_color = (192, 192, 192)  # 银色
+            elif rank == 3:
+                rank_color = (205, 127, 50)  # 铜色
+            
+            rank_text = f"#{rank}"
+            rank_surface = rank_font.render(rank_text, True, rank_color)
+            rank_rect = rank_surface.get_rect(center=(header_x_positions[0], y_pos))
+            screen.blit(rank_surface, rank_rect)
+            
+            # 用户名
+            username = entry.get('username', '匿名')
+            username_surface = entry_font.render(username, True, self.config.TEXT_COLOR)
+            username_rect = username_surface.get_rect(center=(header_x_positions[1], y_pos))
+            screen.blit(username_surface, username_rect)
+            
+            # 分数
+            score = entry.get('score', 0)
+            score_surface = entry_font.render(str(score), True, self.config.TEXT_COLOR)
+            score_rect = score_surface.get_rect(center=(header_x_positions[2], y_pos))
+            screen.blit(score_surface, score_rect)
+            
+            # 时间
+            date = entry.get('date', '')
+            # 只显示日期部分
+            if len(date) > 10:
+                date = date[:10]
+            date_surface = entry_font.render(date, True, self.config.TEXT_MUTED)
+            date_rect = date_surface.get_rect(center=(header_x_positions[3], y_pos))
+            screen.blit(date_surface, date_rect)
+    
+    def _render_empty_leaderboard(self, screen):
+        """渲染空排行榜提示"""
+        empty_font = load_font(24, font_dir=self.config.FONTS_DIR)
+        empty_text = "暂无记录，快来创造第一个记录吧！"
+        empty_surface = empty_font.render(empty_text, True, self.config.TEXT_MUTED)
+        empty_rect = empty_surface.get_rect(center=(self.config.SCREEN_WIDTH // 2, 300))
+        screen.blit(empty_surface, empty_rect)
     
     def back_to_menu(self):
         """返回主菜单"""
@@ -926,6 +1276,10 @@ class SettingsScene(Scene):
 
 class SceneManager:
     """场景管理器"""
+    
+    def create_main_menu_scene(self):
+        """创建主菜单场景"""
+        return MainMenuScene(self)
     
     def __init__(self, app):
         """初始化场景管理器"""

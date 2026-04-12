@@ -81,11 +81,12 @@ class FallingLetter:
             self.height
         )
     
-    def update(self):
+    def update(self, speed=None):
         """更新字母位置"""
         if not self.hit and not self.landed:
             # 更新位置
-            self.y += self.speed
+            current_speed = speed if speed is not None else self.speed
+            self.y += current_speed
             
             # 检查是否落地
             if self.y > self.config.SCREEN_HEIGHT - 200:
@@ -188,6 +189,14 @@ class AdvancedMode(BaseMode):
         self.SPEED_PENALTY_FACTOR = 0.95   # 每次降速的乘法因子
         self.SPEED_MIN_RATIO = 0.5         # 速度下限比例（相对于初始base_speed）
         
+        # 加速机制
+        self.consecutive_correct = 0      # 连续正确计数
+        self.speed_bonus = 1.0            # 加速因子
+        self.SPEED_BONUS_THRESHOLD = self.config.SPEED_BONUS_THRESHOLD
+        self.SPEED_BONUS_FIRST_STEP = self.config.SPEED_BONUS_FIRST_STEP
+        self.SPEED_BONUS_CONTINUOUS_STEP = self.config.SPEED_BONUS_CONTINUOUS_STEP
+        self.SPEED_BONUS_MAX = self.config.SPEED_BONUS_MAX
+        
         # 指法均衡追踪
         self.finger_letter_count = {}  # {finger: {char: count}}
         self._init_finger_letter_mapping()
@@ -242,6 +251,10 @@ class AdvancedMode(BaseMode):
         self.consecutive_errors = 0
         self.speed_penalty = 1.0
         
+        # 重置加速机制
+        self.consecutive_correct = 0
+        self.speed_bonus = 1.0
+        
         # 重置指法统计
         for finger in self.finger_letter_count:
             self.finger_letter_count[finger] = 0
@@ -250,6 +263,21 @@ class AdvancedMode(BaseMode):
         """开始游戏"""
         super().start()
         self.reset_game()
+
+    def _apply_speed_bonus_progression(self):
+        """按新的连续命中规则逐步加速"""
+        if self.consecutive_correct == self.SPEED_BONUS_THRESHOLD:
+            self.speed_bonus = min(self.SPEED_BONUS_MAX, self.speed_bonus + self.SPEED_BONUS_FIRST_STEP)
+        elif self.consecutive_correct > self.SPEED_BONUS_THRESHOLD:
+            self.speed_bonus = min(self.SPEED_BONUS_MAX, self.speed_bonus + self.SPEED_BONUS_CONTINUOUS_STEP)
+
+    def _apply_error_penalty(self):
+        """处理连续错误带来的降速"""
+        self.consecutive_errors += 1
+        self.consecutive_correct = 0
+        if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
+            self.speed_penalty *= self.SPEED_PENALTY_FACTOR
+            self.consecutive_errors = 0
     
     def update(self):
         """更新游戏状态"""
@@ -263,36 +291,33 @@ class AdvancedMode(BaseMode):
         # 更新基准速度（随时间增加）
         base_current_speed = self.base_speed + (self.game_time / self.game_duration) * self.speed_increment
         
-        # 应用速度惩罚因子得到实际速度
-        self.current_speed = base_current_speed * self.speed_penalty
+        # 应用速度惩罚因子和加速因子得到实际速度
+        # 公式：实际速度 = 基础速度 * 降速因子 * 加速因子
+        self.current_speed = base_current_speed * self.speed_penalty * self.speed_bonus
 
         # 检查速度是否低于下限
         if self.current_speed < self.base_speed * self.SPEED_MIN_RATIO:
             self.end_game()
             return
         
-        # 生成新字母
+        # 生成新字母：速度提升后同步缩短生成间隔，让加速体感更明显
+        base_spawn_interval = max(0.6, 1.2 - (self.game_time / self.game_duration) * 0.6)
+        self.spawn_interval = max(0.35, base_spawn_interval / max(1.0, self.speed_bonus))
         current_time = time.time()
         if current_time - self.last_spawn_time >= self.spawn_interval:
             self.spawn_letter()
             self.last_spawn_time = current_time
-            
-            # 随着游戏进行，减小生成间隔（保留更多反应时间）
-            self.spawn_interval = max(0.6, 1.2 - (self.game_time / self.game_duration) * 0.6)
         
         # 更新下落字母
         for letter in self.falling_letters[:]:
-            letter.update()
+            # 修复：传递当前实时速度（含加速因子）给字母对象
+            letter.update(self.current_speed)
             
             # 检查是否落地（落地也算错误）
             if letter.landed:
                 self.missed += 1
                 self.combo = 0  # 重置连击
-                self.consecutive_errors += 1
-                # 检查是否需要降速
-                if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
-                    self.speed_penalty *= self.SPEED_PENALTY_FACTOR
-                    self.consecutive_errors = 0
+                self._apply_error_penalty()
                 self.falling_letters.remove(letter)
         
         # 更新粒子系统
@@ -348,25 +373,38 @@ class AdvancedMode(BaseMode):
         max_combo_surface = font.render(max_combo_text, True, self.config.TEXT_COLOR)
         screen.blit(max_combo_surface, (self.config.SCREEN_WIDTH - 200, 120))
         
-        # 渲染当前速度（带速度倍率）
-        speed_ratio = self.speed_penalty * 100
-        speed_text = f"速度: {self.current_speed:.1f} ({speed_ratio:.0f}%)"
+        # 渲染当前速度和累计加速百分比
+        bonus_percent = max(0, int(round((self.speed_bonus - 1.0) * 100)))
+        speed_text = f"速度: {self.current_speed:.1f} (+{bonus_percent}%)"
         
         # 根据速度倍率选择颜色
-        if speed_ratio <= self.SPEED_MIN_RATIO * 100:
+        if self.speed_penalty <= self.SPEED_MIN_RATIO:
             speed_color = (220, 20, 60)  # 红色：危险
-        elif speed_ratio <= 75:
-            speed_color = (255, 140, 0)  # 橙色：警告
+        elif self.speed_penalty < 1.0:
+            speed_color = (255, 140, 0)  # 橙色：受惩罚
+        elif bonus_percent > 0:
+            speed_color = (16, 185, 129)  # 绿色：加速中
         else:
             speed_color = self.config.TEXT_COLOR
         
         speed_surface = font.render(speed_text, True, speed_color)
-        screen.blit(speed_surface, (self.config.SCREEN_WIDTH - 200, 150))
+        screen.blit(speed_surface, (self.config.SCREEN_WIDTH - 220, 150))
 
-        # 渲染连续错误数
-        error_text = f"连错: {self.consecutive_errors}/{self.SPEED_PENALTY_THRESHOLD}"
-        error_surface = font.render(error_text, True, self.config.TEXT_COLOR)
-        screen.blit(error_surface, (self.config.SCREEN_WIDTH - 200, 180))
+        # 渲染连续正确/错误数
+        if self.consecutive_correct >= self.SPEED_BONUS_THRESHOLD:
+            status_text = f"连对: {self.consecutive_correct}  继续命中+3%"
+            status_color = self.config.SUCCESS_COLOR
+        elif self.consecutive_correct > 0:
+            status_text = f"连对: {self.consecutive_correct}/{self.SPEED_BONUS_THRESHOLD}"
+            status_color = self.config.SUCCESS_COLOR
+        elif self.consecutive_errors > 0:
+            status_text = f"连错: {self.consecutive_errors}/{self.SPEED_PENALTY_THRESHOLD}"
+            status_color = self.config.WARNING_COLOR
+        else:
+            status_text = "连击准备中"
+            status_color = self.config.TEXT_COLOR
+        status_surface = font.render(status_text, True, status_color)
+        screen.blit(status_surface, (self.config.SCREEN_WIDTH - 260, 180))
     
     def spawn_letter(self):
         """
@@ -432,6 +470,10 @@ class AdvancedMode(BaseMode):
                     # 重置连续错误计数（击中成功）
                     self.consecutive_errors = 0
                     
+                    # 增加连续正确计数，并按新的分段规则触发加速
+                    self.consecutive_correct += 1
+                    self._apply_speed_bonus_progression()
+                    
                     # 更新游戏数据
                     self.correct_count += 1
                     self.total_count += 1
@@ -469,11 +511,7 @@ class AdvancedMode(BaseMode):
                 # 没有击中任何字母
                 self.total_count += 1
                 self.combo = 0  # 重置连击
-                self.consecutive_errors += 1
-                # 检查是否需要降速
-                if self.consecutive_errors >= self.SPEED_PENALTY_THRESHOLD:
-                    self.speed_penalty *= self.SPEED_PENALTY_FACTOR
-                    self.consecutive_errors = 0
+                self._apply_error_penalty()
                 self.play_error_sound()
     
     def show_combo_text(self, x, y):
@@ -523,7 +561,7 @@ class AdvancedMode(BaseMode):
         # 总分
         self.score = base_score + combo_reward + accuracy_reward
     
-    def get_max_score(self):
+    def get_max_score(self) -> int:
         """获取最大可能分数"""
         # 估算最大分数
         max_possible_letters = int(self.game_duration / 0.3)  # 假设最快0.3秒一个字母
@@ -534,6 +572,6 @@ class AdvancedMode(BaseMode):
         
         return max_base_score + max_combo_bonus + max_combo_reward + max_accuracy_reward
     
-    def get_mode_name(self):
+    def get_mode_name(self) -> str:
         """获取游戏模式名称"""
         return "高级模式"

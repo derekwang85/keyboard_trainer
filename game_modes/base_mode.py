@@ -121,13 +121,9 @@ class BaseMode:
         if not self.running:
             return
         
-        # 处理键盘事件
-        if event.type == pygame.KEYDOWN:
-            # ESC/End键：放弃游戏并返回主菜单（不计分）
-            if event.key in (pygame.K_ESCAPE, pygame.K_END):
-                self.abort_game()
-            else:
-                self.handle_key_down(event.key)
+        # 基类只兜底处理全局退出按键，具体输入由各模式自行处理，避免重复分发 KEYDOWN
+        if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_END):
+            self.abort_game()
     
     def handle_key_down(self, key):
         """处理键盘按下事件"""
@@ -156,7 +152,7 @@ class BaseMode:
         
         return len(self.config.STAR_THRESHOLDS) - 1
     
-    def get_max_score(self):
+    def get_max_score(self) -> int:
         """获取最大可能分数"""
         return 100
     
@@ -224,77 +220,42 @@ class BaseMode:
         self.running = False
         
         # 不保存成绩，不播放结束音效，直接返回主菜单
-        # 返回主菜单
-        from scene_manager import MainMenuScene
-        self.scene.scene_manager.change_scene(MainMenuScene(self.scene.scene_manager))
+        self.scene.scene_manager.change_scene(self.scene.scene_manager.create_main_menu_scene())
     
+    def _get_storage_info(self):
+        """解析存储所需的模式和级别信息"""
+        # 优先使用具体的模式子类型（如 advanced_pinyin）
+        mode_key = getattr(self, 'mode_subtype', getattr(self.scene, 'mode', 'beginner'))
+        level = None
+        if mode_key.startswith("intermediate_"):
+            level = mode_key.replace("intermediate_", "")
+            mode_key = "intermediate"
+        return mode_key, level
+
     def check_new_record(self):
         """检查是否创造新纪录"""
-        # 加载现有记录
-        data = self.storage_manager.load_data()
+        mode, level = self._get_storage_info()
+        best_record = self.storage_manager.get_best_record(mode, level)
         
-        # 获取当前模式的记录
-        mode_name = self.get_mode_name().lower()
-        if mode_name not in data:
+        if not best_record:
             return True
-        
-        # 检查分数是否高于现有记录
-        if self.score > data[mode_name].get("best_score", 0):
-            return True
-        
-        return False
+            
+        return self.score > best_record.get("best_score", 0)
     
     def save_record(self):
         """保存成绩记录"""
-        # 加载现有数据
-        data = self.storage_manager.load_data()
+        mode, level = self._get_storage_info()
         
-        # 获取当前模式名称
-        mode_name = self.get_mode_name().lower()
+        record = {
+            "score": self.score,
+            "accuracy": self.accuracy,
+            "stars": self.calculate_stars(),
+            "max_combo": getattr(self, 'max_combo', 0)
+        }
         
-        # 如果当前模式没有记录，创建新记录
-        if mode_name not in data:
-            data[mode_name] = {
-                "best_score": self.score,
-                "best_accuracy": self.accuracy,
-                "stars": self.calculate_stars(),
-                "record_holder": "玩家",
-                "total_sessions": 1,
-                "recent_results": []
-            }
-        else:
-            # 更新记录
-            mode_data = data[mode_name]
-            
-            # 更新最佳分数和准确率
-            if self.score > mode_data.get("best_score", 0):
-                mode_data["best_score"] = self.score
-                mode_data["best_accuracy"] = self.accuracy
-                mode_data["stars"] = self.calculate_stars()
-                mode_data["record_holder"] = "玩家"
-            
-            # 更新总游戏次数
-            mode_data["total_sessions"] = mode_data.get("total_sessions", 0) + 1
-            
-            # 添加最近结果
-            if "recent_results" not in mode_data:
-                mode_data["recent_results"] = []
-            
-            # 添加当前结果
-            mode_data["recent_results"].append({
-                "score": self.score,
-                "accuracy": self.accuracy,
-                "stars": self.calculate_stars(),
-                "date": time.strftime("%Y-%m-%d %H:%M:%S")
-            })
-            
-            # 只保留最近10条记录
-            if len(mode_data["recent_results"]) > 10:
-                mode_data["recent_results"] = mode_data["recent_results"][-10:]
-        
-        # 保存数据
-        self.storage_manager.save_data(data)
+        # 使用 StorageManager 的标准化更新方法
+        self.storage_manager.update_record(mode, level, record)
     
-    def get_mode_name(self):
+    def get_mode_name(self) -> str:
         """获取游戏模式名称"""
         return "基础模式"

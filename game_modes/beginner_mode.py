@@ -249,6 +249,8 @@ class BeginnerMode(BaseMode):
             self.stage_transition_timer -= 1
             if self.stage_transition_timer <= 0:
                 self.showing_stage_intro = False
+                # 阶段介绍结束后立即生成新目标按键高亮
+                self.generate_target_key()
             return  # 阶段介绍期间不处理其他逻辑
 
         # 更新粒子系统
@@ -265,8 +267,7 @@ class BeginnerMode(BaseMode):
             self.next_target_delay -= 1
             if self.next_target_delay <= 0:
                 self.pending_next_target = False
-                self.keyboard_renderer.clear_highlight()
-                self._check_stage_progress()
+                self.generate_next_target_after_error()
         else:
             # 检查是否完成当前阶段
             self._check_stage_progress()
@@ -359,9 +360,16 @@ class BeginnerMode(BaseMode):
         # 显示鼓励文本
         self.show_encouragement()
 
+        # 记录上一个目标键（用于重复按键闪烁）
+        prev_target_key = self.target_key
+
         # 清除旧高亮并生成下一个
         self.keyboard_renderer.clear_highlight()
         self.generate_target_key()
+
+        # 如果重复按键，触发一次快速闪烁提示
+        if prev_target_key and self.target_key == prev_target_key:
+            self.keyboard_renderer.blink_key(self.target_key, blink_count=1)
     
     def handle_error_key(self, pressed_key_code=None):
         """处理错误按键"""
@@ -386,9 +394,19 @@ class BeginnerMode(BaseMode):
             self.keyboard_renderer.highlight_key(wrong_char, 
                 self.config.ERROR_COLOR, self.error_highlight_frames)
 
-        # 设置延迟切换到下一个目标
+        # 设置延迟切换到下一个目标（但保持正确按键高亮）
         self.pending_next_target = True
         self.next_target_delay = self.error_highlight_frames
+
+    def generate_next_target_after_error(self):
+        """错误延迟后生成下一个目标按键"""
+        prev_target_key = self.target_key
+        self.keyboard_renderer.clear_highlight()
+        self.generate_target_key()
+
+        # 如果重复按键，触发一次快速闪烁提示
+        if prev_target_key and self.target_key == prev_target_key:
+            self.keyboard_renderer.blink_key(self.target_key, blink_count=1)
     
     def show_encouragement(self):
         """显示鼓励文本"""

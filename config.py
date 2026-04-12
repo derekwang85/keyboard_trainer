@@ -64,6 +64,13 @@ class Config:
         self.ADVANCED_SPEED_INCREMENT = 0.5     # 高级模式速度增量
         self.MASTER_SPEED_INCREMENT = 0.3       # 大师模式速度增量
         
+        # 加速机制设置
+        self.SPEED_BONUS_THRESHOLD = 3           # 第一次连续正确 3 次触发首段加速
+        self.SPEED_BONUS_FIRST_STEP = 0.05       # 首次触发时加速 5%
+        self.SPEED_BONUS_CONTINUOUS_STEP = 0.03  # 之后每多正确 1 次再加速 3%
+        self.SPEED_BONUS_STEP = self.SPEED_BONUS_CONTINUOUS_STEP  # 兼容旧逻辑字段
+        self.SPEED_BONUS_MAX = 5.0               # 加速上限（500%）
+        
         # 分数设置
         self.CORRECT_KEY_SCORE = 1              # 正确按键得分
         self.COMBO_BONUS = 0.1                  # 连击奖励系数

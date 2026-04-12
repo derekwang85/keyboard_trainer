@@ -45,6 +45,9 @@ class KeyboardRenderer:
         # 高亮状态：支持多键，duration=None 表示持续高亮
         self.highlights = {}
         
+        # 闪烁状态：key_char -> {'blink_count': int, 'blink_frame': int, 'is_visible': bool}
+        self.blink_keys = {}
+        
         # 按键映射
         self.key_map = self._create_key_map()
         
@@ -267,12 +270,30 @@ class KeyboardRenderer:
         
         # 渲染按键
         expired_keys = []
+        expired_blinks = []
         for key in self.keys:
             # 确定按键颜色
             char_lower = key['char'].lower() if len(key['char']) == 1 else key['char']
             highlight = self.highlights.get(key['char'])
+            blink = self.blink_keys.get(key['char'])
             
-            if highlight:
+            # 处理闪烁状态更新
+            if blink:
+                blink['blink_frame'] += 1
+                if blink['blink_frame'] >= blink['frames_per_toggle']:
+                    blink['blink_frame'] = 0
+                    blink['is_visible'] = not blink['is_visible']
+                    if blink['is_visible']:
+                        # 刚切换到可见，减少闪烁计数
+                        blink['blink_count'] -= 1
+                        if blink['blink_count'] <= 0:
+                            expired_blinks.append(key['char'])
+            
+            # 确定颜色
+            if blink and not blink['is_visible']:
+                # 闪烁隐藏状态：使用较暗的颜色
+                color = self.key_bg_color
+            elif highlight:
                 color = highlight['color']
                 # 计时高亮递减
                 if highlight['duration'] is not None:
@@ -303,6 +324,10 @@ class KeyboardRenderer:
         # 清理过期高亮
         for char in expired_keys:
             self.highlights.pop(char, None)
+        
+        # 清理过期闪烁
+        for char in expired_blinks:
+            self.blink_keys.pop(char, None)
 
         # 绘制按键文本
         for key in self.keys:
@@ -341,12 +366,31 @@ class KeyboardRenderer:
             'duration': duration
         }
     
+    def blink_key(self, key_char, blink_count=1):
+        """
+        设置按键闪烁效果（用于重复目标键提示）
+        
+        参数:
+        - key_char: 要闪烁的按键字符
+        - blink_count: 闪烁次数（一亮一暗为一次）
+        """
+        if key_char is None:
+            return
+        self.blink_keys[key_char] = {
+            'blink_count': max(1, blink_count),
+            'blink_frame': 0,
+            'is_visible': True,
+            'frames_per_toggle': 4  # 缩短为一次快速闪烁
+        }
+    
     def clear_highlight(self, key_char=None):
         """清除高亮（单个或全部）"""
         if key_char:
             self.highlights.pop(key_char, None)
+            self.blink_keys.pop(key_char, None)
         else:
             self.highlights.clear()
+            self.blink_keys.clear()
     
     def highlight_finger_keys(self, finger, color=None, duration=30):
         """
@@ -521,13 +565,15 @@ class KeyboardRenderer:
         - is_left: 是否为左手
         - active_finger: 当前激活的手指
         """
-        # 手指定义（从左到右或从右到左）
+        # 四指与拇指分开处理，保证拇指位于手掌内侧、四指顺序真实
         if is_left:
-            # 左手：从左到右为 小指、无名指、中指、食指、拇指
-            finger_keys = ['left_pinkie', 'left_ring', 'left_middle', 'left_index', 'left_thumb']
+            # 左手从左到右：小指、无名指、中指、食指，拇指单独在右侧
+            finger_keys = ['left_pinkie', 'left_ring', 'left_middle', 'left_index']
+            thumb_key = 'left_thumb'
         else:
-            # 右手：从左到右为 拇指、食指、中指、无名指、小指
-            finger_keys = ['right_thumb', 'right_index', 'right_middle', 'right_ring', 'right_pinkie']
+            # 右手从左到右：食指、中指、无名指、小指，拇指单独在左侧
+            finger_keys = ['right_index', 'right_middle', 'right_ring', 'right_pinkie']
+            thumb_key = 'right_thumb'
 
         # 绘制手掌 - 深色主题使用填充矩形
         palm_rect = pygame.Rect(x, y + palm_center_offset, hand_width, hand_height)
@@ -539,8 +585,7 @@ class KeyboardRenderer:
         fingers_start_x = x + (hand_width - four_fingers_width) // 2
 
         # 绘制4个手指
-        for i in range(4):
-            finger_key = finger_keys[i]
+        for i, finger_key in enumerate(finger_keys):
             fx = fingers_start_x + i * (finger_width + finger_gap)
             fy = y  # 指尖在上方
 
@@ -562,16 +607,19 @@ class KeyboardRenderer:
                 # 未激活状态：仅轮廓线
                 pygame.draw.ellipse(screen, self.HAND_BORDER_COLOR, finger_rect, 2)
 
-        # 绘制拇指
-        thumb_key = finger_keys[4]
+        # 绘制拇指 - 修正位置，使其斜向手掌内侧下方
         is_active = (thumb_key == active_finger)
         color = self.finger_colors.get(thumb_key, self.FINGER_INACTIVE_COLOR)
 
+        # 拇指位置优化：左手拇指在右侧，右手拇指在左侧，且拉开距离
         if is_left:
-            thumb_x = x - thumb_width // 2
+            # 左手拇指：移到手掌右侧边缘，并稍微向下
+            thumb_x = x + hand_width - thumb_width - 10
+            thumb_y = y + palm_center_offset + hand_height - thumb_length - 10
         else:
-            thumb_x = x + hand_width - thumb_width // 2
-        thumb_y = y + palm_center_offset - thumb_length // 2
+            # 右手拇指：移到手掌左侧边缘，并稍微向下
+            thumb_x = x + 10
+            thumb_y = y + palm_center_offset + hand_height - thumb_length - 10
 
         thumb_rect = pygame.Rect(thumb_x, thumb_y, thumb_width, thumb_length)
         
